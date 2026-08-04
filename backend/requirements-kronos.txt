@@ -1,0 +1,14 @@
+# Optional: Kronos AI price forecasting (third-party, MIT).
+# The app degrades gracefully when these are absent — /api/forecast/status
+# reports setup_required and the auto-trader simply skips the Kronos signal.
+#
+#   pip install -r requirements-kronos.txt
+#   python setup_kronos.py          # clones Kronos into backend/kronos_lib/
+#
+# Split out of requirements.txt so CI (and anyone who does not want a ~2 GB
+# torch download) can install the core stack on its own.
+torch>=2.0.0
+einops==0.8.1
+huggingface_hub>=0.33.0
+safetensors>=0.4.0
+tqdm>=4.67.0

@@ -1,0 +1,26 @@
+# Dependencies are version-pinned for reproducible builds.
+# Security note: python-dotenv (1.2.2), requests (2.33.0) and pytest (9.0.3) are held
+# at their advisory-patched versions — do not downgrade below these.
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+pydantic==2.10.4
+pydantic-settings==2.7.0
+alembic==1.14.0
+python-dotenv==1.2.2
+httpx==0.28.1
+numpy==2.2.1
+yfinance>=0.2.50
+pandas==2.2.3
+requests==2.33.0
+slowapi==0.1.9
+
+# Testing
+pytest==9.0.3
+pytest-asyncio==1.4.0
+
+# Kronos AI forecasting is OPTIONAL and lives in requirements-kronos.txt.
+# It pulls in torch (~2 GB), the app degrades gracefully without it, and CI
+# only needs the core stack above to run the test suite.
+#     pip install -r requirements-kronos.txt

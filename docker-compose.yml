@@ -1,0 +1,61 @@
+version: "3.9"
+
+services:
+  db:
+    restart: unless-stopped
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: filingslab
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      # Loopback ONLY. "5432:5432" publishes on 0.0.0.0, and server_setup.sh
+      # provisions a PUBLIC cloud host (it prints the API URL from
+      # `curl ifconfig.me`), so that put a Postgres carrying the default
+      # postgres/postgres credentials on the open internet.
+      #
+      # The iptables rules in that script do not save it either: Docker publishes
+      # ports through its own DOCKER chain in nat/FORWARD, which is traversed
+      # before the INPUT allowlist, so `-I INPUT` rules never see the traffic.
+      # The firewall looks restrictive and is not.
+      #
+      # The backend does not need this mapping at all - it reaches the database
+      # over the compose network as db:5432. It exists only so a human on the
+      # host can run psql.
+      - "127.0.0.1:5432:5432"
+
+  backend:
+    restart: unless-stopped
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/filingslab
+      # Operator token for the trading control surface, taken from the .env
+      # file next to this compose file. Empty means those routes are DISABLED
+      # (503) rather than open - see SECURITY.md.
+      API_TOKEN: ${API_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    restart: unless-stopped
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

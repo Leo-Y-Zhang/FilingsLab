@@ -1,0 +1,93 @@
+"""
+Unit tests for the statistical analysis module.
+"""
+
+import pytest
+import math
+from app.analytics.statistics import (
+    bootstrap_mean_ci,
+    bootstrap_percentile,
+    one_sample_t_test,
+    distribution_stats,
+)
+
+
+class TestBootstrapMeanCI:
+    def test_empty(self):
+        mean, lo, hi = bootstrap_mean_ci([])
+        assert mean == 0.0 and lo == 0.0 and hi == 0.0
+
+    def test_single_value(self):
+        mean, lo, hi = bootstrap_mean_ci([5.0])
+        assert mean == pytest.approx(5.0)
+
+    def test_ci_ordering(self):
+        data = [1.0, 2.0, 3.0, 4.0, 5.0] * 20
+        mean, lo, hi = bootstrap_mean_ci(data, n_bootstrap=500, seed=42)
+        assert lo <= mean <= hi
+
+    def test_width_narrows_with_more_data(self):
+        # Draw both samples from the SAME seeded distribution so that only the
+        # sample size differs; a larger sample must give a narrower CI on the mean.
+        import numpy as np
+        rng = np.random.default_rng(1)
+        population = rng.normal(0.0, 1.0, 300)
+        small = population[:30].tolist()
+        large = population.tolist()
+        _, lo_s, hi_s = bootstrap_mean_ci(small, n_bootstrap=200, seed=1)
+        _, lo_l, hi_l = bootstrap_mean_ci(large, n_bootstrap=200, seed=1)
+        assert (hi_s - lo_s) >= (hi_l - lo_l)
+
+
+class TestBootstrapPercentile:
+    def test_empty(self):
+        result = bootstrap_percentile([], [25, 50, 75])
+        assert result == [0.0, 0.0, 0.0]
+
+    def test_known_values(self):
+        data = list(range(100))
+        result = bootstrap_percentile(data, [0, 50, 100])
+        assert result[0] == pytest.approx(0.0, abs=1)
+        assert result[1] == pytest.approx(49.5, abs=2)
+        assert result[2] == pytest.approx(99.0, abs=1)
+
+
+class TestOneSampleTTest:
+    def test_clear_rejection(self):
+        # mean = 1.0, mu0 = 0 → should reject H0
+        data = [1.0] * 100
+        t, p = one_sample_t_test(data, 0.0)
+        assert t > 0
+        assert p < 0.05
+
+    def test_fail_to_reject(self):
+        # data centred on mu0
+        import random
+        rng = random.Random(99)
+        data = [rng.gauss(0, 1) for _ in range(50)]
+        t, p = one_sample_t_test(data, 0.0)
+        # p-value should not consistently reject (probabilistic — just check types)
+        assert isinstance(t, float)
+        assert 0 <= p <= 1
+
+    def test_insufficient_data(self):
+        t, p = one_sample_t_test([1.0], 0.0)
+        assert t == 0.0 and p == 1.0
+
+
+class TestDistributionStats:
+    def test_empty(self):
+        assert distribution_stats([]) == {}
+
+    def test_basic(self):
+        data = [1.0, 2.0, 3.0, 4.0, 5.0]
+        stats = distribution_stats(data)
+        assert stats["n"] == 5
+        assert stats["mean"] == pytest.approx(3.0)
+        assert stats["min"] == pytest.approx(1.0)
+        assert stats["max"] == pytest.approx(5.0)
+
+    def test_single_element(self):
+        stats = distribution_stats([42.0])
+        assert stats["mean"] == pytest.approx(42.0)
+        assert stats["std"] == pytest.approx(0.0)
