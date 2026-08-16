@@ -156,6 +156,11 @@ def _compute_performance(db: Session, trader: Trader) -> None:
     vals = [p.portfolio_value for p in result.portfolio_history]
     period_days = max((result.simulation_end - result.simulation_start).days, 1)
     metrics = compute_all(vals, [], period_days)
+    # compute_all only sees the portfolio value series, not the individual
+    # fills, so on its own it can only store win_rate 0.0 and trade_count 0.
+    # The engine counted both during the run — keep its numbers.
+    metrics["win_rate"] = result.win_rate
+    metrics["trade_count"] = result.executed_trade_count
 
     existing = (
         db.query(PerformanceMetric)

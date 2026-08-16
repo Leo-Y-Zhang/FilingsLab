@@ -69,10 +69,10 @@ npm run dev
 
 ```bash
 cd backend
-python -m pytest -q      # 116 tests (analytics + API security + rate-limit contract + resource bounds)
+python -m pytest -q      # 118 tests (analytics + API security + rate-limit contract + resource bounds)
 ```
 
-43 tests cover the pure-Python analytics layer (returns, Sharpe/Sortino, drawdown, win rate, bootstrap CIs, t-tests); 42 cover the API security boundary — authentication, rate limiting, request-field bounds, and request logging; 7 pin the rate-limit *contract* (a limited endpoint still answers 200 with a body, and its bucket is the route rather than the concrete URL); 8 pin that neither the SEC EDGAR crawl nor the per-disclosure enrichment ever runs on a request thread; 5 pin that every caller-keyed dictionary on a public path stays bounded when driven with 500 distinct keys; 5 pin the cold-start contract (data on the second request, and a warming response that states the wait); 6 pin that the auto-trader gets its Kronos forecast in process rather than over its own rate-limited loopback API. Ingestion and the simulation routers are still untested. The frontend has 22 tests (`cd frontend && npm test`): 8 routing, 6 covering what an anonymous visitor is allowed to request, 8 covering the warming poll interval and banner.
+43 tests cover the pure-Python analytics layer (returns, Sharpe/Sortino, drawdown, win rate, bootstrap CIs, t-tests); 42 cover the API security boundary — authentication, rate limiting, request-field bounds, and request logging; 7 pin the rate-limit *contract* (a limited endpoint still answers 200 with a body, and its bucket is the route rather than the concrete URL); 8 pin that neither the SEC EDGAR crawl nor the per-disclosure enrichment ever runs on a request thread; 5 pin that every caller-keyed dictionary on a public path stays bounded when driven with 500 distinct keys; 5 pin the cold-start contract (data on the second request, and a warming response that states the wait); 6 pin that the auto-trader gets its Kronos forecast in process rather than over its own rate-limited loopback API; 2 pin that a seeded performance row records the trade activity the simulation actually produced instead of an empty win rate and trade count. Ingestion and the simulation routers are still untested. The frontend has 22 tests (`cd frontend && npm test`): 8 routing, 6 covering what an anonymous visitor is allowed to request, 8 covering the warming poll interval and banner.
 
 ---
 
@@ -187,7 +187,7 @@ filingslab/
 - This is a research and portfolio project, not a production trading system.
 - Backtest results depend on the completeness and timeliness of the disclosure feed; the synthetic fallback is illustrative only and carries no predictive meaning.
 - Value-based fills use midpoint estimates and standard transaction-cost assumptions, not real fill data or market impact.
-- Automated tests cover the analytics layer, the API security boundary, the rate-limit contract, resource bounds and the cold-start contract (116 backend tests) plus 22 frontend tests; ingestion and the simulation routers are not under test.
+- Automated tests cover the analytics layer, the API security boundary, the rate-limit contract, resource bounds and the cold-start contract (118 backend tests) plus 22 frontend tests; ingestion and the simulation routers are not under test.
 - Rate limiting is in-process memory, so it resets on restart and is per-worker — a brake on casual abuse, not a distributed defence. Nothing alerts on the request log.
 - The disclosure feed is served from a 15-minute cache refreshed in the background, so a cold start returns `warming: true` and an empty list rather than holding the request open. The cold path is two chained background stages — crawl SEC EDGAR, then price every filing — and the warming response carries `retry_after_seconds` so the client polls at 15 seconds instead of its steady-state 5 minutes. Measured end to end on a real cold process: the browser rendered 24 filings 49 seconds after first load, with no user action. It is *seconds to a minute*, not instant, and can be several minutes when EDGAR is slow.
 - Kronos forecasting is optional and unvalidated here — it is a demonstration integration, not an evaluated signal.
