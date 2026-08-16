@@ -100,7 +100,9 @@ def one_sample_t_test(
     Tests H0: mean(data) == mu0 against H1: mean(data) != mu0.
 
     Returns (t_statistic, two-tailed p_value).
-    Uses normal approximation for large n (valid for the research use case).
+    The p-value comes from Student's t with n - 1 degrees of freedom, not from
+    the normal tail: H2 compares at most six traders, and at df = 5 the normal
+    approximation understates the p-value by a factor of three.
     """
     n = len(data)
     if n < 2:
@@ -112,14 +114,78 @@ def one_sample_t_test(
     se = std / math.sqrt(n)
     t_stat = (mean - mu0) / se
 
-    p_val = 2 * _normal_sf(abs(t_stat))
+    p_val = _student_t_two_tailed_p(t_stat, n - 1)
 
     return t_stat, p_val
 
 
-def _normal_sf(z: float) -> float:
-    """Survival function of the standard normal (P(Z > z))."""
-    return 0.5 * math.erfc(z / math.sqrt(2))
+def _student_t_two_tailed_p(t: float, df: int) -> float:
+    """P(|T| >= |t|) for T ~ Student's t with `df` degrees of freedom."""
+    if df <= 0:
+        return 1.0
+    tt = t * t
+    if math.isinf(tt) or tt > 1e300:
+        return 0.0
+    return _regularized_incomplete_beta(df / 2.0, 0.5, df / (df + tt))
+
+
+def _regularized_incomplete_beta(a: float, b: float, x: float) -> float:
+    """
+    Regularised incomplete beta function I_x(a, b).
+
+    Evaluated with the standard continued-fraction expansion, taken on
+    whichever side of x converges quickly. Written out here rather than
+    pulled from scipy, which the backend does not depend on.
+    """
+    if x <= 0.0:
+        return 0.0
+    if x >= 1.0:
+        return 1.0
+    front = math.exp(
+        math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
+        + a * math.log(x) + b * math.log1p(-x)
+    )
+    if x < (a + 1.0) / (a + b + 2.0):
+        return front * _beta_continued_fraction(a, b, x) / a
+    return 1.0 - front * _beta_continued_fraction(b, a, 1.0 - x) / b
+
+
+def _beta_continued_fraction(a: float, b: float, x: float,
+                             max_iter: int = 300, eps: float = 1e-12) -> float:
+    """Lentz evaluation of the continued fraction for the incomplete beta."""
+    tiny = 1e-300
+    qab, qap, qam = a + b, a + 1.0, a - 1.0
+    c = 1.0
+    d = 1.0 - qab * x / qap
+    if abs(d) < tiny:
+        d = tiny
+    d = 1.0 / d
+    h = d
+    for m in range(1, max_iter + 1):
+        m2 = 2 * m
+        num = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1.0 + num * d
+        if abs(d) < tiny:
+            d = tiny
+        c = 1.0 + num / c
+        if abs(c) < tiny:
+            c = tiny
+        d = 1.0 / d
+        h *= d * c
+
+        num = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1.0 + num * d
+        if abs(d) < tiny:
+            d = tiny
+        c = 1.0 + num / c
+        if abs(c) < tiny:
+            c = tiny
+        d = 1.0 / d
+        delta = d * c
+        h *= delta
+        if abs(delta - 1.0) < eps:
+            break
+    return h
 
 
 # ── Distributional summaries ─────────────────────────────────────────────────

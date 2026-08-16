@@ -74,6 +74,33 @@ class TestOneSampleTTest:
         t, p = one_sample_t_test([1.0], 0.0)
         assert t == 0.0 and p == 1.0
 
+    def test_small_sample_uses_t_distribution(self):
+        # H2 runs this test on at most six traders, so df = 5 — nowhere near
+        # the large-n regime where the normal tail is a usable approximation.
+        # These are per-trader (early - late) return differences in percent.
+        diffs = [1.0, -0.5, 2.0, 1.2, 0.1, 2.2]
+        t, p = one_sample_t_test(diffs, 0.0)
+        assert t == pytest.approx(2.3271, abs=1e-3)
+        # Two-tailed area beyond |t| = 2.3271 under Student's t with df = 5.
+        # The standard normal gives 0.0200 for the same statistic, which would
+        # have H2 announce significant outperformance from six observations.
+        assert p == pytest.approx(0.0675, abs=1e-3)
+        assert p > 0.05
+
+    def test_two_observations_is_cauchy(self):
+        # df = 1: the t distribution is Cauchy, so P(|T| >= 1) = 1/2 exactly.
+        t, p = one_sample_t_test([0.0, 2.0], 0.0)
+        assert t == pytest.approx(1.0)
+        assert p == pytest.approx(0.5, abs=1e-6)
+
+    def test_large_sample_approaches_normal(self):
+        # The fix must not disturb the large-n case: with n = 2000 the t tail
+        # and the normal tail agree to well inside a percent of each other.
+        data = [0.05] * 1000 + [-0.03] * 1000
+        t, p = one_sample_t_test(data, 0.0)
+        normal_p = math.erfc(abs(t) / math.sqrt(2))
+        assert p == pytest.approx(normal_p, rel=0.01)
+
 
 class TestDistributionStats:
     def test_empty(self):
