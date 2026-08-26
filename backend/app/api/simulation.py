@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
@@ -8,6 +10,7 @@ from app.simulation.config import EngineConfig
 from app.simulation.engine import run as sim_run
 from app.simulation.monte_carlo import run_monte_carlo
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/simulate", tags=["Simulation"])
 
 _DISCLAIMER = (
@@ -48,8 +51,9 @@ def run_simulation(
         return sim_run(db, engine_cfg)
     except ValueError as e:
         raise HTTPException(422, str(e))
-    except Exception as e:
-        raise HTTPException(500, f"Simulation failed: {e}")
+    except Exception:
+        logger.exception("Simulation failed for trader %s", cfg.trader_id)
+        raise HTTPException(500, "Simulation failed; see server log.")
 
 
 @router.post("/monte-carlo", response_model=MonteCarloResult)
@@ -74,5 +78,6 @@ def run_mc(
         return run_monte_carlo(db, cfg)
     except ValueError as e:
         raise HTTPException(422, str(e))
-    except Exception as e:
-        raise HTTPException(500, f"Monte Carlo failed: {e}")
+    except Exception:
+        logger.exception("Monte Carlo failed for trader %s", cfg.trader_id)
+        raise HTTPException(500, "Monte Carlo failed; see server log.")

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
@@ -8,6 +10,7 @@ from app.research.alpha_decay import compute_alpha_decay
 from app.research.hypothesis import test_h1_excess_returns, test_h2_early_vs_late
 from app.schemas.research import ExperimentsBundle, AlphaDecayResult, HypothesisTestResult
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/research", tags=["Research"])
 
 # Each delay is a full simulation run, so an unbounded `delays` list was a
@@ -34,8 +37,9 @@ def get_experiments(
     """
     try:
         return run_all_experiments(db)
-    except Exception as e:
-        raise HTTPException(500, f"Experiments failed: {e}")
+    except Exception:
+        logger.exception("Experiments failed")
+        raise HTTPException(500, "Experiments failed; see server log.")
 
 
 @router.get("/alpha-decay/{trader_id}", response_model=AlphaDecayResult)
@@ -73,8 +77,9 @@ def get_alpha_decay(
         return compute_alpha_decay(db, trader_id, parsed_delays)
     except ValueError as e:
         raise HTTPException(404, str(e))
-    except Exception as e:
-        raise HTTPException(500, f"Alpha decay computation failed: {e}")
+    except Exception:
+        logger.exception("Alpha decay computation failed for trader %s", trader_id)
+        raise HTTPException(500, "Alpha decay computation failed; see server log.")
 
 
 @router.get("/hypothesis/h1", response_model=HypothesisTestResult)
@@ -95,8 +100,9 @@ def hypothesis_h1(
         return test_h1_excess_returns(db, category)
     except ValueError as e:
         raise HTTPException(422, str(e))
-    except Exception as e:
-        raise HTTPException(500, str(e))
+    except Exception:
+        logger.exception("H1 hypothesis test failed for category %r", category)
+        raise HTTPException(500, "Hypothesis test failed; see server log.")
 
 
 @router.get("/hypothesis/h2", response_model=HypothesisTestResult)
@@ -116,5 +122,6 @@ def hypothesis_h2(
         return test_h2_early_vs_late(db)
     except ValueError as e:
         raise HTTPException(422, str(e))
-    except Exception as e:
-        raise HTTPException(500, str(e))
+    except Exception:
+        logger.exception("H2 hypothesis test failed")
+        raise HTTPException(500, "Hypothesis test failed; see server log.")

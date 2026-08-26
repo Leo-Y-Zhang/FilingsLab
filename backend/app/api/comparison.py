@@ -5,6 +5,8 @@ Runs the simulation engine for multiple traders in parallel using the same
 configuration and returns side-by-side metrics for comparison.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
@@ -15,6 +17,7 @@ from app.simulation.config import EngineConfig
 from app.simulation.engine import run as sim_run
 from app.schemas.comparison import ComparisonRequest, ComparisonResult, ComparisonEntry
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/compare", tags=["Comparison"])
 settings = get_settings()
 
@@ -67,8 +70,9 @@ def compare_traders(
             result = sim_run(db, cfg)
         except ValueError as e:
             raise HTTPException(422, f"Trader {trader_id}: {e}")
-        except Exception as e:
-            raise HTTPException(500, f"Simulation failed for trader {trader_id}: {e}")
+        except Exception:
+            logger.exception("Comparison simulation failed for trader %s", trader_id)
+            raise HTTPException(500, "Comparison failed; see server log.")
 
         if bench_ret_pct is None and result.benchmark_return_pct is not None:
             bench_ret_pct = result.benchmark_return_pct

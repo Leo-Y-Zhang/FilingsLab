@@ -5,6 +5,7 @@ GET  /api/forecast/status          — Kronos availability + hardware info
 GET  /api/forecast/history/{sym}   — Last N days OHLCV for chart context
 GET  /api/forecast/{symbol}        — AI price forecast (pred_days trading days)
 """
+import logging
 import re
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from app.kronos import service as kronos
 from app.models.price import Price
 from app.schemas.forecast import ForecastResult, HistoricalPoint, KronosStatus
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/forecast", tags=["Kronos Forecast"])
 
 # Whitelist: uppercase letters, digits, dots (e.g. "BRK.A"), hyphens
@@ -115,5 +117,6 @@ def forecast(
         raise HTTPException(status_code=503, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception:
+        logger.exception("Kronos forecast failed for %s", sym)
+        raise HTTPException(status_code=500, detail="Forecast failed; see server log.")

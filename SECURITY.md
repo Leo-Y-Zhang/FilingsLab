@@ -385,3 +385,33 @@ refused; both were watched failing first, at ten straight non-429s. Verified
 against a live uvicorn process on a seeded database, because finding 6 is the
 reason a green suite is not enough here: five 200s carrying a real body with
 `X-RateLimit-Remaining` counting 4 down to 0, then 429 with `Retry-After: 57`.
+
+**11. Eight handlers returned the exception text to the caller (LOW).**
+`app/api/research.py`, `simulation.py`, `comparison.py` and `forecast.py` each
+ended their `try` with some form of `HTTPException(500, f"...: {e}")`, so
+whatever an unexpected exception said went out over the wire. That text is not
+neutral: SQLAlchemy quotes the failing statement and the column names back,
+yfinance quotes the URL it called, and an `AttributeError` names the attribute
+of an internal object. It is free reconnaissance on a surface this document
+already establishes is reachable by strangers, and none of it is usable by the
+caller, who cannot act on any of it.
+
+`feed.py` already had the right shape - `logger.exception(...)` so the operator
+gets the traceback, a fixed string so the caller gets the fact of the failure
+and nothing else - so this is that pattern applied to the remaining eight rather
+than a new mechanism. A single `@app.exception_handler(Exception)` would not
+have done it: these sites *catch* the exception and raise a fresh
+`HTTPException`, so a global handler never sees them, and removing the local
+`except` blocks would have thrown away the context each one logs.
+
+Deliberately unchanged: the `422`, `404` and `503` branches still carry their
+message. `kronos.get_forecast` raises `RuntimeError` for "Kronos is not set up"
+and `ValueError` for "no OHLCV data for AAA", and the simulation engine raises
+`ValueError` for an unknown trader - those are answers to the caller's question,
+written for the caller. Only the trailing `except Exception` leaked.
+`tests/test_error_disclosure.py` drives all eight routes with the call that does
+the work replaced by a raiser and asserts the sentinel reaches the log and not
+the body; all eight were watched failing first, each returning the sentinel
+verbatim. Confirmed against a live process by dropping the `traders` table
+underneath it: `{"detail":"Simulation failed; see server log."}` on the wire,
+the SQLAlchemy traceback in the log.
