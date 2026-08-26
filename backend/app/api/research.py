@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.limiter import limiter
 from app.research.experiments import run_all_experiments
-from app.research.alpha_decay import compute_alpha_decay
+from app.research.alpha_decay import compute_alpha_decay, TraderNotFoundError
 from app.research.hypothesis import test_h1_excess_returns, test_h2_early_vs_late
 from app.schemas.research import ExperimentsBundle, AlphaDecayResult, HypothesisTestResult
 
@@ -75,7 +75,11 @@ def get_alpha_decay(
 
     try:
         return compute_alpha_decay(db, trader_id, parsed_delays)
-    except ValueError as e:
+    except TraderNotFoundError as e:
+        # Only the lookup means 404. A plain ValueError from anywhere below --
+        # "No trades found", "start_date must precede end_date", "Simulation
+        # produced no data points" -- is a computation that went wrong, and it
+        # takes the same fixed-string path as any other unexpected failure.
         raise HTTPException(404, str(e))
     except Exception:
         logger.exception("Alpha decay computation failed for trader %s", trader_id)

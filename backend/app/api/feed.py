@@ -468,7 +468,7 @@ def run_auto_trader_now(request: Request, response: Response):
     try:
         summary = at.trigger_now()
         return {"status": "ok", "summary": summary}
-    except Exception as exc:
+    except Exception:
         logger.exception("Auto-trader manual run failed")
         raise HTTPException(500, "Auto-trader cycle failed; see server log.")
 

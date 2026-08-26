@@ -32,6 +32,7 @@ from fastapi.testclient import TestClient
 from app.core.database import get_db
 from app.core.limiter import limiter
 from app.main import app
+from app.research.alpha_decay import TraderNotFoundError
 
 # Shaped like a real SQLAlchemy failure, because that is the one an operator
 # would actually hit: it names a table and a column that are not the caller's
@@ -119,6 +120,51 @@ def test_handler_still_says_something_useful(
 
     detail = r.json().get("detail")
     assert isinstance(detail, str) and detail.strip(), f"{path} detail was {detail!r}"
+
+
+# -- the 404 on alpha decay belongs to one lookup, not to ValueError at large --
+
+def test_an_unknown_trader_still_answers_404(client, monkeypatch):
+    """Regression guard: scoping the mapping must not lose the case it is for."""
+    def _missing(*args, **kwargs):
+        raise TraderNotFoundError("Trader 99 not found")
+
+    monkeypatch.setattr("app.api.research.compute_alpha_decay", _missing)
+
+    r = client.get("/api/research/alpha-decay/99")
+
+    assert r.status_code == 404
+    assert "not found" in r.json()["detail"].lower()
+
+
+def test_an_internal_value_error_is_not_dressed_up_as_a_404(client, monkeypatch):
+    """
+    `compute_alpha_decay` raises ValueError for "Trader N not found", and so
+    does everything underneath it: the engine alone raises ValueError for "No
+    trades found", "start_date must precede end_date" and "Simulation produced
+    no data points". Catching the base class turned every one of those into a
+    404 -- the wrong status, and the message went out with it, which is finding
+    11 still leaking through the branch immediately above the one it fixed.
+    """
+    def _internal(*args, **kwargs):
+        raise ValueError(SENTINEL)
+
+    monkeypatch.setattr("app.api.research.compute_alpha_decay", _internal)
+
+    r = client.get("/api/research/alpha-decay/1")
+
+    assert r.status_code == 500, f"answered {r.status_code}: {r.text[:200]}"
+    assert SENTINEL not in r.text
+    assert r.json()["detail"] == "Alpha decay computation failed; see server log."
+
+
+def test_the_scoped_lookup_error_is_still_a_value_error():
+    """
+    Subclassing keeps every existing `except ValueError` caller working, which
+    is what makes this a scoping change rather than a behaviour change
+    somewhere else.
+    """
+    assert issubclass(TraderNotFoundError, ValueError)
 
 
 def test_the_exception_reaches_the_server_log(client, monkeypatch, caplog):

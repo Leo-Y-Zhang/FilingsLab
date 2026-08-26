@@ -444,3 +444,28 @@ constructed. Because a number in a field nobody reads is not a disclosure,
 sample is incomplete. `tests/test_research_integrity.py` pins both halves for
 both tests; all nine were watched failing first, the logging assertions against
 a completely empty log.
+
+**13. Finding 11 leaking through the branch above it (LOW).**
+`get_alpha_decay` mapped `except ValueError` onto 404 with `str(e)` attached.
+That is right for exactly one condition - `compute_alpha_decay` raising "Trader
+N not found" - and wrong for every other `ValueError` raised underneath it. The
+engine alone raises `ValueError` for "No trades found for trader N",
+"start_date must precede end_date" and "Simulation produced no data points";
+each came back as a 404 carrying its own message. So the site fixed in finding
+11 still had a leak one branch higher, and the status code was wrong as well as
+the body.
+
+`compute_alpha_decay`'s lookup now raises `TraderNotFoundError`, a `ValueError`
+subclass so that every existing `except ValueError` caller keeps catching it
+unchanged, and the router catches that specific type for its 404. Anything else
+falls through to the fixed-string 500 from finding 11. The failing test was
+observed first, and it failed on both halves at once: `answered 404:
+{"detail":"OperationalError: no such column: trades.disclosure_dt"}`.
+
+Worth stating plainly, because it is a real behaviour change and not only a
+tightening: a `ValueError` from below the lookup now answers 500 rather than
+404. In practice the alpha-decay delay loop already catches per-delay engine
+failures and logs a WARNING, so no live request was found that reaches the new
+branch - it is covered by test, not by a reproduction. The cosmetic half of the
+same pass: `feed.py` bound `except Exception as exc` and never used `exc`, left
+over from finding 11; the binding is gone.

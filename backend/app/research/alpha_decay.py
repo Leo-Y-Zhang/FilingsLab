@@ -31,6 +31,19 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+class TraderNotFoundError(ValueError):
+    """
+    Raised only by the trader lookup below, so a router can answer 404 for the
+    one case that means it.
+
+    A `ValueError` subclass on purpose: the engine and everything else under
+    `compute_alpha_decay` already raise plain `ValueError` for their own
+    conditions, and every existing `except ValueError` caller keeps catching
+    this one unchanged. What it buys is the ability to tell "no such trader"
+    apart from "the computation went wrong", which the base class cannot.
+    """
+
+
 def compute_alpha_decay(
     db: Session,
     trader_id: int,
@@ -41,7 +54,7 @@ def compute_alpha_decay(
     from app.models.trader import Trader
     trader = db.query(Trader).filter(Trader.id == trader_id).first()
     if not trader:
-        raise ValueError(f"Trader {trader_id} not found")
+        raise TraderNotFoundError(f"Trader {trader_id} not found")
 
     test_delays = delays or settings.alpha_decay_delays
     data_points: list[AlphaDecayPoint] = []
