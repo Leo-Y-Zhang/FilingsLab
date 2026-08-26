@@ -123,3 +123,12 @@ class HypothesisTestResult(BaseModel):
     interpretation: str
     bootstrap_ci_lower: Optional[float] = None
     bootstrap_ci_upper: Optional[float] = None
+
+    # Both tests tolerate a trader whose simulation fails or yields no usable
+    # returns, so the sample behind a p-value is not always every eligible
+    # trader. These three are deliberately required, with no default: a result
+    # that does not state the sample it was computed on should not be
+    # constructible.
+    traders_total: int
+    traders_used: int
+    traders_skipped: int

@@ -415,3 +415,32 @@ the body; all eight were watched failing first, each returning the sentinel
 verbatim. Confirmed against a live process by dropping the `traders` table
 underneath it: `{"detail":"Simulation failed; see server log."}` on the wire,
 the SQLAlchemy traceback in the log.
+
+**12. A hypothesis test silently shrank its own sample (MEDIUM).**
+The same bug class as finding 9, one layer up, and this time what it corrupts is
+a published statistic. `hypothesis._get_portfolio_daily_returns` ended
+`except Exception: return []` and H2's loop ended `except Exception: continue`.
+Neither logged anything and neither told the caller, so a trader whose
+simulation raised was dropped from the sample in silence and the p-value came
+back computed on whatever survived, indistinguishable from a complete run.
+
+It bites hardest on H2, which pairs at most six traders: one silent skip takes
+df from 5 to 4, and commit `b115a9a` - which replaced the normal approximation
+with Student's t precisely because df = 5 is nowhere near the large-n regime -
+is why that difference is not academic. An empty return list also arises with no
+exception at all, from a trader who simply has no trades in the window, and that
+shrank the sample identically.
+
+The per-trader tolerance was kept, not removed: one broken trader taking out the
+entire research page is a worse answer than a stated subset, and both tests were
+written tolerant independently, so that is the design rather than an oversight.
+What changed is that the skip is no longer silent. Every skip logs -
+`logger.exception` with the trader id when a simulation raises,
+`logger.warning` when it returns nothing usable - and the result now carries
+`traders_total`, `traders_used` and `traders_skipped` as **required** schema
+fields with no default, so a result that does not state its sample cannot be
+constructed. Because a number in a field nobody reads is not a disclosure,
+`interpretation` - which the UI prints verbatim - gains a sentence saying the
+sample is incomplete. `tests/test_research_integrity.py` pins both halves for
+both tests; all nine were watched failing first, the logging assertions against
+a completely empty log.

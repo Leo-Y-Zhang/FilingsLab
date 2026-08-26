@@ -255,6 +255,11 @@ export interface HypothesisTestResult {
   interpretation: string
   bootstrap_ci_lower?: number
   bootstrap_ci_upper?: number
+  // The sample the statistic was computed on. Both tests skip a trader whose
+  // simulation fails, and `interpretation` already says so in words.
+  traders_total: number
+  traders_used: number
+  traders_skipped: number
 }
 
 // ── Comparison ────────────────────────────────────────────────────────────────

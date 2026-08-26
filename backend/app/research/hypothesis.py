@@ -24,7 +24,31 @@ from app.schemas.research import HypothesisTestResult
 logger = logging.getLogger(__name__)
 
 
+def _incomplete_sample_note(total: int, used: int, skipped: int) -> str:
+    """
+    Rendered into `interpretation`, which the UI prints verbatim, because a
+    number in a field nobody reads is not a disclosure.
+    """
+    if not skipped:
+        return ""
+    return (
+        f" Sample is incomplete: {used} of {total} traders contributed data and "
+        f"{skipped} was skipped; the statistic above is computed on the remainder."
+        if skipped == 1 else
+        f" Sample is incomplete: {used} of {total} traders contributed data and "
+        f"{skipped} were skipped; the statistic above is computed on the remainder."
+    )
+
+
 def _get_portfolio_daily_returns(db: Session, trader_id: int, delay: int) -> list[float]:
+    """
+    Return the trader's daily portfolio returns, or an empty list if this
+    trader cannot contribute.
+
+    An empty list is a *skip*, and the caller counts it. It is never silent:
+    every route out of here that produces one logs first, because the value
+    this swallowed exception corrupts is a published statistic, not a screen.
+    """
     cfg = EngineConfig(
         trader_id=trader_id,
         initial_capital=100_000.0,
@@ -36,10 +60,20 @@ def _get_portfolio_daily_returns(db: Session, trader_id: int, delay: int) -> lis
     )
     try:
         result = sim_run(db, cfg)
-        vals = [p.portfolio_value for p in result.portfolio_history]
-        return daily_returns_from_values(vals)
     except Exception:
+        logger.exception(
+            "H1: skipping trader %s, its simulation at delay %s failed", trader_id, delay
+        )
         return []
+
+    vals = [p.portfolio_value for p in result.portfolio_history]
+    rets = daily_returns_from_values(vals)
+    if not rets:
+        logger.warning(
+            "H1: skipping trader %s, its simulation at delay %s produced no daily returns",
+            trader_id, delay,
+        )
+    return rets
 
 
 def test_h1_excess_returns(db: Session, category: str = "politician") -> HypothesisTestResult:
@@ -55,9 +89,21 @@ def test_h1_excess_returns(db: Session, category: str = "politician") -> Hypothe
         raise ValueError(f"No traders with category '{category}'")
 
     all_daily_rets: list[float] = []
+    traders_used = 0
     for t in traders:
         rets = _get_portfolio_daily_returns(db, t.id, delay=1)
+        if not rets:
+            continue
+        traders_used += 1
         all_daily_rets.extend(rets)
+
+    traders_total = len(traders)
+    traders_skipped = traders_total - traders_used
+    if traders_skipped:
+        logger.warning(
+            "H1 for category %r ran on %s of %s traders; %s skipped",
+            category, traders_used, traders_total, traders_skipped,
+        )
 
     if not all_daily_rets:
         raise ValueError("No return data available")
@@ -76,6 +122,7 @@ def test_h1_excess_returns(db: Session, category: str = "politician") -> Hypothe
         f"Mean daily excess return: {mean_excess * 100:.4f}%. "
         + ("Statistically significant outperformance detected." if reject and mean_excess > 0
            else "No statistically significant outperformance detected.")
+        + _incomplete_sample_note(traders_total, traders_used, traders_skipped)
     )
 
     return HypothesisTestResult(
@@ -88,6 +135,9 @@ def test_h1_excess_returns(db: Session, category: str = "politician") -> Hypothe
         interpretation=interpretation,
         bootstrap_ci_lower=round(ci_lo * 100, 4),
         bootstrap_ci_upper=round(ci_hi * 100, 4),
+        traders_total=traders_total,
+        traders_used=traders_used,
+        traders_skipped=traders_skipped,
     )
 
 
@@ -116,10 +166,21 @@ def test_h2_early_vs_late(db: Session) -> HypothesisTestResult:
         try:
             r_early = sim_run(db, cfg_early)
             r_late  = sim_run(db, cfg_late)
-            early_returns.append(r_early.total_return_pct)
-            late_returns.append(r_late.total_return_pct)
         except Exception:
+            # Each skip costs a degree of freedom on a sample of at most six,
+            # so it is logged per trader and counted into the result below.
+            logger.exception("H2: skipping trader %s, one of its two simulations failed", t.id)
             continue
+        early_returns.append(r_early.total_return_pct)
+        late_returns.append(r_late.total_return_pct)
+
+    traders_total = len(traders)
+    traders_used = len(early_returns)
+    traders_skipped = traders_total - traders_used
+    if traders_skipped:
+        logger.warning(
+            "H2 ran on %s of %s traders; %s skipped", traders_used, traders_total, traders_skipped
+        )
 
     if not early_returns or not late_returns:
         raise ValueError("Insufficient data for H2 test")
@@ -135,6 +196,7 @@ def test_h2_early_vs_late(db: Session) -> HypothesisTestResult:
         f"Mean return difference (early − late): {mean_diff:.4f}%. "
         + ("Early action significantly outperforms late action." if reject and mean_diff > 0
            else "No significant difference between early and late action detected.")
+        + _incomplete_sample_note(traders_total, traders_used, traders_skipped)
     )
 
     return HypothesisTestResult(
@@ -147,4 +209,7 @@ def test_h2_early_vs_late(db: Session) -> HypothesisTestResult:
         interpretation=interpretation,
         bootstrap_ci_lower=round(ci_lo, 4),
         bootstrap_ci_upper=round(ci_hi, 4),
+        traders_total=traders_total,
+        traders_used=traders_used,
+        traders_skipped=traders_skipped,
     )
