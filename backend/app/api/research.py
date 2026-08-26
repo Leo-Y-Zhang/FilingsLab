@@ -78,7 +78,10 @@ def get_alpha_decay(
 
 
 @router.get("/hypothesis/h1", response_model=HypothesisTestResult)
+@limiter.limit("5/minute")
 def hypothesis_h1(
+    request: Request,
+    response: Response,
     category: str = Query(default="politician"),
     db: Session = Depends(get_db),
 ):
@@ -97,7 +100,12 @@ def hypothesis_h1(
 
 
 @router.get("/hypothesis/h2", response_model=HypothesisTestResult)
-def hypothesis_h2(db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def hypothesis_h2(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     """
     Test H2: Does acting within 3 days of disclosure produce significantly
     higher returns than waiting 14 days?

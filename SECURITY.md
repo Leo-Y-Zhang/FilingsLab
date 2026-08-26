@@ -362,3 +362,26 @@ naming the ticker, and a buy made with no forecast records
 that "Kronos is not installed" stays at DEBUG, since the app is documented to
 run without the optional ~2 GB extra and a warning per ticker per cycle is how a
 real warning gets ignored.
+
+---
+
+## Round 4 (2026-08-26)
+
+**10. Two research endpoints were left on the default rate limit (MEDIUM).**
+`GET /api/research/hypothesis/h1` and `/h2` were the only routes in the research
+router carrying no `@limiter.limit`, so `SlowAPIMiddleware` gave them the
+120/minute default. Their cost is the same order as `/api/research/experiments`
+next door at 5/minute: H1 runs a full simulation per trader in the requested
+category, H2 runs two per trader, and both sit on the surface this document
+deliberately leaves open to anonymous callers. Nothing about the two routes
+earned twenty-four times the budget of comparable work - they were simply never
+decorated, and a default that applies silently is exactly the kind of gap that
+does not announce itself.
+
+Both now declare `@limiter.limit("5/minute")` and the `request: Request,
+response: Response` parameters that finding 5 made mandatory.
+`tests/test_api_security.py` sends ten requests at each and asserts the sixth is
+refused; both were watched failing first, at ten straight non-429s. Verified
+against a live uvicorn process on a seeded database, because finding 6 is the
+reason a green suite is not enough here: five 200s carrying a real body with
+`X-RateLimit-Remaining` counting 4 down to 0, then 429 with `Retry-After: 57`.

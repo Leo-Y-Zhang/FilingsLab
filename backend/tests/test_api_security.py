@@ -6,6 +6,8 @@ fail against the pre-fix code:
 
   1. unauthenticated resource exhaustion on GET /api/feed/disclosures
      (unbounded distinct cache keys + ~18 s of in-request sleeping per miss)
+     and on the two /api/research/hypothesis routes, which were left on the
+     120/minute default while every other research route declared its own
   2. negative `notional` on POST /api/feed/execute fabricating account cash
   3. no authentication on the auto-trader / paper-broker control surface
   4. no request-level detection (no request id, no client IP in the log)
@@ -85,6 +87,28 @@ def test_unauthenticated_disclosure_flood_is_rate_limited(client, monkeypatch):
         for n in range(1, 41)
     ]
     assert 429 in codes, "an unauthenticated loop was never rate limited"
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/api/research/hypothesis/h1", "/api/research/hypothesis/h2"],
+)
+def test_hypothesis_flood_is_rate_limited(client, path):
+    """
+    H1 runs one full simulation per trader in the category and H2 runs two per
+    trader, which is the same order of cost as /api/research/experiments next
+    door at 5/minute. These two were the only research routes with no explicit
+    limit, so SlowAPIMiddleware gave them the 120/minute default: twenty-four
+    times the budget for comparable work, to an anonymous caller.
+
+    The handler itself fails against the stub session; the limit is checked
+    before it runs, so the status that matters here is 429 vs not-429.
+    """
+    codes = [client.get(path).status_code for _ in range(10)]
+
+    assert 429 in codes, f"ten requests to {path} were never rate limited"
+    # 5/minute: the sixth request onwards must be refused.
+    assert codes[5] == 429, f"limit did not bite at the 6th request: {codes[:7]}"
 
 
 def test_per_ticker_feed_rejects_junk_symbols(client):
