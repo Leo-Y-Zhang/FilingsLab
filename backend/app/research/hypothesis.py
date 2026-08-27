@@ -15,6 +15,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.logsafe import scrub
 from app.simulation.config import EngineConfig
 from app.simulation.engine import run as sim_run
 from app.analytics.statistics import bootstrap_mean_ci, one_sample_t_test
@@ -102,7 +103,7 @@ def test_h1_excess_returns(db: Session, category: str = "politician") -> Hypothe
     if traders_skipped:
         logger.warning(
             "H1 for category %r ran on %s of %s traders; %s skipped",
-            category, traders_used, traders_total, traders_skipped,
+            scrub(category), traders_used, traders_total, traders_skipped,
         )
 
     if not all_daily_rets:

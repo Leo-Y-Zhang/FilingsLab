@@ -22,6 +22,8 @@ from typing import Optional
 
 import pandas as pd
 
+from app.core.logsafe import scrub
+
 logger = logging.getLogger(__name__)
 
 # ── Kronos library location ───────────────────────────────────────────────────
@@ -141,7 +143,7 @@ def _fetch_ohlcv(symbol: str, period: str = "2y") -> pd.DataFrame:
     try:
         hist = yf.Ticker(symbol.upper()).history(period=yf_period)
     except Exception as exc:
-        logger.warning("yfinance error for %s: %s", symbol, exc)
+        logger.warning("yfinance error for %s: %s", scrub(symbol), scrub(exc))
         return pd.DataFrame()
 
     if hist.empty:

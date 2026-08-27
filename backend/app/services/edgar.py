@@ -23,6 +23,8 @@ from typing import Callable, Optional
 
 import httpx
 
+from app.core.logsafe import scrub
+
 logger = logging.getLogger(__name__)
 
 _SEARCH  = "https://efts.sec.gov/LATEST/search-index"
@@ -126,7 +128,10 @@ def _claim_refresh(key: str) -> bool:
         if now - _last_attempt.get(key, 0.0) < _MIN_REFRESH_INTERVAL:
             return False
         if len(_inflight) >= _MAX_CONCURRENT_REFRESHES:
-            logger.debug("EDGAR refresh for %s skipped: %d already running", key, len(_inflight))
+            logger.debug(
+                "EDGAR refresh for %s skipped: %d already running",
+                scrub(key), len(_inflight),
+            )
             return False
         if key not in _last_attempt:
             _prune_attempts(now)

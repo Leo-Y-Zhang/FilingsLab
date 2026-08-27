@@ -14,6 +14,7 @@ from typing import Optional
 import yfinance as yf
 from sqlalchemy.orm import Session
 
+from app.core.logsafe import scrub
 from app.models.paper_portfolio import PaperAccount, PaperOrder, PaperPosition
 
 logger = logging.getLogger(__name__)
@@ -167,7 +168,12 @@ def execute_trade(
         notional=actual_notional,
     ))
     db.commit()
-    logger.info("Paper %s: %s %.4f @ $%.2f = $%.2f", side.upper(), ticker, shares, price, actual_notional)
+    # The auto-trader reaches here with a ticker taken from remote Form 4 XML,
+    # which no allow-list on that path ever sees. Scrub at the sink.
+    logger.info(
+        "Paper %s: %s %.4f @ $%.2f = $%.2f",
+        scrub(side.upper()), scrub(ticker), shares, price, actual_notional,
+    )
 
     return {
         "ticker":    ticker,

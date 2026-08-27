@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.limiter import limiter
+from app.core.logsafe import scrub
 from app.research.experiments import run_all_experiments
 from app.research.alpha_decay import compute_alpha_decay, TraderNotFoundError
 from app.research.hypothesis import test_h1_excess_returns, test_h2_early_vs_late
@@ -105,7 +106,7 @@ def hypothesis_h1(
     except ValueError as e:
         raise HTTPException(422, str(e))
     except Exception:
-        logger.exception("H1 hypothesis test failed for category %r", category)
+        logger.exception("H1 hypothesis test failed for category %r", scrub(category))
         raise HTTPException(500, "Hypothesis test failed; see server log.")
 
 
