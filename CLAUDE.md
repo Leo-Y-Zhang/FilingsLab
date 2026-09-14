@@ -32,7 +32,7 @@ forecasting degrades gracefully when absent.
 
 ```
 # backend
-python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt
+python3 -m venv backend/.venv && backend/.venv/bin/pip install -r backend/requirements.txt
 # frontend
 cd frontend && npm ci
 ```
