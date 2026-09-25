@@ -78,7 +78,11 @@ class AutoTraderLog(Base):
     __tablename__ = "auto_trader_log"
 
     id         = Column(Integer, primary_key=True, index=True)
-    action     = Column(String(10), nullable=False)   # buy / sell / skip / stop_loss / take_profit
+    # buy / sell / skip / stop_loss / take_profit. Was String(10), which
+    # "take_profit" (11) overflows: PostgreSQL refused the row. create_all does
+    # not alter an existing table, so a database created before this needs
+    #   ALTER TABLE auto_trader_log ALTER COLUMN action TYPE VARCHAR(20);
+    action     = Column(String(20), nullable=False)
     ticker     = Column(String(20), nullable=False)
     reason     = Column(String(255), nullable=True)
     score      = Column(Float, nullable=True)

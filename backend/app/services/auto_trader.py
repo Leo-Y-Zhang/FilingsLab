@@ -364,8 +364,10 @@ def _check_exits(db: Session, cfg: AutoTraderConfig, held_tickers_selling: set[s
 
         if action:
             try:
-                pb.close_position(db, pos.ticker)
+                # Before closing: close_position sells pos.qty down to zero, so
+                # computed afterwards every exit was logged at $0.
                 notional = pos.qty * price
+                pb.close_position(db, pos.ticker)
                 _log(db, action, pos.ticker, reason, price=price, notional=notional)
                 msg = f"{action.upper()} {pos.ticker}: {reason}"
                 actions.append(msg)
