@@ -20,6 +20,7 @@ It does not constitute financial advice or real trading of any kind.
 """
 
 import random
+from bisect import bisect_left
 from datetime import date, timedelta
 from typing import Optional
 import logging
@@ -73,6 +74,27 @@ def _prices_on_date(db: Session, symbols: set[str], target: date) -> dict[str, f
     for row in sorted(rows, key=lambda r: r.date):
         result[row.asset_symbol] = float(row.closing_price)
     return result
+
+
+def _closes_by_symbol(
+    db: Session, symbols: set[str], start: date, end: date,
+) -> dict[str, list[date]]:
+    """Ascending dates on which each symbol has a close, within [start, end]."""
+    rows = (
+        db.query(Price.asset_symbol, Price.date)
+        .filter(Price.asset_symbol.in_(symbols), Price.date >= start, Price.date <= end)
+        .order_by(Price.date)
+        .all()
+    )
+    closes: dict[str, list[date]] = {}
+    for symbol, day in rows:
+        closes.setdefault(symbol, []).append(day)
+    return closes
+
+
+def _first_close_on_or_after(closes: list[date], target: date) -> Optional[date]:
+    i = bisect_left(closes, target)
+    return closes[i] if i < len(closes) else None
 
 
 # ── Value estimation ──────────────────────────────────────────────────────────
@@ -166,12 +188,28 @@ def run(
     if sim_start >= sim_end:
         raise ValueError("No price data in the requested window")
 
-    # Index trades by their execution date (disclosure_date + delay_days)
+    # Index trades by their execution date: the first close of the traded
+    # asset on or after disclosure_date + delay_days. Prices are marked with
+    # the last close on or before a day, so a trade scheduled for a Saturday
+    # used to fill at Friday's close. When the disclosure itself fell on the
+    # weekend that close predates it: the simulated follower bought at a price
+    # from before the filing was public, which is exactly the look-ahead this
+    # engine exists to rule out. On the synthetic seed that was 25% of fills at
+    # delay 0 and 13% at the default delay of 1. Rolling forward also makes
+    # delay_days = 1 mean "the next business day", as EngineConfig documents,
+    # where a Friday filing used to fill at Friday's close like delay 0.
+    closes = _closes_by_symbol(db, {t.asset_symbol for t in all_trades}, sim_start, sim_end)
     trades_by_exec: dict[date, list[Trade]] = {}
     for t in all_trades:
-        exec_date = t.disclosure_date + timedelta(days=config.delay_days)
-        if sim_start <= exec_date <= sim_end:
-            trades_by_exec.setdefault(exec_date, []).append(t)
+        scheduled = t.disclosure_date + timedelta(days=config.delay_days)
+        if not sim_start <= scheduled <= sim_end:
+            continue
+        exec_date = _first_close_on_or_after(closes.get(t.asset_symbol, []), scheduled)
+        # The same tolerance the price lookup applies backwards: no close
+        # within PRICE_LOOKBACK_DAYS means no fill.
+        if exec_date is None or (exec_date - scheduled).days > PRICE_LOOKBACK_DAYS:
+            continue
+        trades_by_exec.setdefault(exec_date, []).append(t)
 
     symbols = {t.asset_symbol for t in all_trades} | {"SPY"}
 

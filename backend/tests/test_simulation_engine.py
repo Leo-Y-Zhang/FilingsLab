@@ -127,3 +127,71 @@ def test_monte_carlo_benchmarks_the_window_it_actually_simulated(db):
 
     assert mc.benchmark_return_pct is not None
     assert mc.benchmark_return_pct == pytest.approx(single.benchmark_return_pct)
+
+
+# ── A fill never uses a close from before it was allowed ──────────────────────
+
+FRIDAY = date(2023, 1, 6)
+SATURDAY = FRIDAY + timedelta(days=1)
+MONDAY = FRIDAY + timedelta(days=3)
+
+_NO_FRICTION = dict(transaction_cost=0.0, slippage=0.0, max_position_pct=1.0)
+
+
+def _weekday_db(close, trades):
+    """
+    Prices on weekdays only, as both seeders write them (yfinance returns
+    trading days; the GBM fallback skips weekends). SPY is flat.
+    """
+    session = _session()
+    day = START
+    while day <= END:
+        if day.weekday() < 5:
+            session.add(Price(asset_symbol="ACME", date=day, closing_price=close(day)))
+            session.add(Price(asset_symbol="SPY", date=day, closing_price=400.0))
+        day += timedelta(days=1)
+    trader = Trader(name="Weekday Trader", category="insider")
+    session.add(trader)
+    session.flush()
+    for disclosed, kind in trades:
+        session.add(_trade(trader.id, disclosed, kind))
+    session.commit()
+    return session, trader.id
+
+
+def _jumps_over_the_first_weekend(day: date) -> float:
+    return 100.0 if day <= FRIDAY else 110.0
+
+
+@pytest.mark.parametrize(
+    "disclosed,delay",
+    [
+        (SATURDAY, 0),   # the close before the weekend predates the filing
+        (SATURDAY, 1),   # Sunday: same
+        (FRIDAY, 1),     # "the next business day" is Monday, not Friday again
+    ],
+)
+def test_a_buy_fills_at_the_first_close_on_or_after_disclosure_plus_delay(disclosed, delay):
+    """
+    ACME closes at 100 through Friday and 110 from Monday. A follower who can
+    first act at the weekend buys at Monday's 110 and, holding a flat price,
+    makes nothing. Before the fix the engine filled at Friday's 100 and booked
+    the weekend's +10% on the position, a return no follower could have had.
+    """
+    session, trader_id = _weekday_db(_jumps_over_the_first_weekend, [(disclosed, "buy")])
+    result = engine.run(session, EngineConfig(trader_id=trader_id, delay_days=delay, **_NO_FRICTION))
+
+    assert result.executed_trade_count == 1
+    assert result.total_return_pct == pytest.approx(0.0, abs=1e-6)
+
+
+def test_a_sell_fills_at_the_first_close_on_or_after_disclosure():
+    """The same rule on the sell side: a weekend sell fills at Monday's price."""
+    session, trader_id = _weekday_db(
+        _jumps_over_the_first_weekend, [(START, "buy"), (SATURDAY, "sell")],
+    )
+    result = engine.run(session, EngineConfig(trader_id=trader_id, delay_days=0, **_NO_FRICTION))
+
+    # 150 shares bought at 100; $15,000 of them sold at 110, the rest held at 110.
+    assert result.executed_trade_count == 2
+    assert result.total_return_pct == pytest.approx(1.5, abs=1e-6)
