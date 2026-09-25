@@ -144,15 +144,27 @@ def run(
         raise ValueError(f"No trades found for trader {config.trader_id}")
 
     sim_start = config.start_date or all_trades[0].disclosure_date
-
-    # Cap end date to the latest price in the database so benchmark lookups
-    # never fall outside the synthetic price range.
-    latest_price_date: Optional[date] = db.query(func.max(Price.date)).scalar()
-    default_end = latest_price_date if latest_price_date else date.today()
-    sim_end = config.end_date or default_end
+    sim_end = config.end_date or date.today()
 
     if sim_start >= sim_end:
         raise ValueError("start_date must precede end_date")
+
+    # Clamp the window to the price data, whoever chose it. Outside that range
+    # nothing can be priced, and the day loop below costs a query per calendar
+    # day: start_date and end_date come straight from the open /api/simulate,
+    # /api/simulate/monte-carlo and /api/compare bodies, and a 100-year window
+    # took 61 s of one worker thread (8,000 years, about 80 minutes). The end
+    # was already capped like this when defaulted, so benchmark lookups never
+    # fall outside the price range; now the same holds when it is given.
+    first_price_date, latest_price_date = (
+        db.query(func.min(Price.date), func.max(Price.date)).one()
+    )
+    if latest_price_date is None:
+        raise ValueError("No price data available")
+    sim_start = max(sim_start, first_price_date)
+    sim_end = min(sim_end, latest_price_date)
+    if sim_start >= sim_end:
+        raise ValueError("No price data in the requested window")
 
     # Index trades by their execution date (disclosure_date + delay_days)
     trades_by_exec: dict[date, list[Trade]] = {}
