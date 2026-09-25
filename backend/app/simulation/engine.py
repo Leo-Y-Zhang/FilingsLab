@@ -20,7 +20,7 @@ It does not constitute financial advice or real trading of any kind.
 """
 
 import random
-from bisect import bisect_left
+from bisect import bisect_left, bisect_right
 from datetime import date, timedelta
 from typing import Optional
 import logging
@@ -58,38 +58,54 @@ def _lookup_price(db: Session, symbol: str, target: date) -> Optional[float]:
     return float(row.closing_price) if row else None
 
 
-def _prices_on_date(db: Session, symbols: set[str], target: date) -> dict[str, float]:
-    """Return {symbol: price} for all known symbols on or before target."""
-    from_date = target - timedelta(days=PRICE_LOOKBACK_DAYS)
-    rows = (
-        db.query(Price)
-        .filter(
-            Price.asset_symbol.in_(symbols),
-            Price.date >= from_date,
-            Price.date <= target,
+class _PriceBook:
+    """
+    Every close a run can touch, loaded with one query.
+
+    The day loop used to ask the database for each day's prices: about a
+    thousand ORM queries per run over four years, 5-7 s on the synthetic seed.
+    Monte Carlo repeats the run up to 2,000 times and comparison six, so the
+    UI's default 300-run Monte Carlo took about half an hour against a 120 s
+    client timeout, and each anonymous request held an anyio worker thread for
+    as long. ``on`` answers exactly what that per-day query did.
+    """
+
+    def __init__(self, db: Session, symbols: set[str], start: date, end: date) -> None:
+        rows = (
+            db.query(Price.asset_symbol, Price.date, Price.closing_price)
+            .filter(
+                Price.asset_symbol.in_(symbols),
+                Price.date >= start - timedelta(days=PRICE_LOOKBACK_DAYS),
+                Price.date <= end,
+            )
+            .order_by(Price.date)
+            .all()
         )
-        .all()
-    )
-    result: dict[str, float] = {}
-    for row in sorted(rows, key=lambda r: r.date):
-        result[row.asset_symbol] = float(row.closing_price)
-    return result
+        self._start = start
+        self._dates: dict[str, list[date]] = {}
+        self._closes: dict[str, list[float]] = {}
+        for symbol, day, close in rows:
+            self._dates.setdefault(symbol, []).append(day)
+            self._closes.setdefault(symbol, []).append(float(close))
 
+    def close_dates(self, symbol: str) -> list[date]:
+        """Ascending dates on or after the run's start on which *symbol* closed."""
+        dates = self._dates.get(symbol, [])
+        return dates[bisect_left(dates, self._start):]
 
-def _closes_by_symbol(
-    db: Session, symbols: set[str], start: date, end: date,
-) -> dict[str, list[date]]:
-    """Ascending dates on which each symbol has a close, within [start, end]."""
-    rows = (
-        db.query(Price.asset_symbol, Price.date)
-        .filter(Price.asset_symbol.in_(symbols), Price.date >= start, Price.date <= end)
-        .order_by(Price.date)
-        .all()
-    )
-    closes: dict[str, list[date]] = {}
-    for symbol, day in rows:
-        closes.setdefault(symbol, []).append(day)
-    return closes
+    def trading_days(self) -> list[date]:
+        """Every date on or after the run's start on which any symbol closed."""
+        return sorted({d for symbol in self._dates for d in self.close_dates(symbol)})
+
+    def on(self, target: date) -> dict[str, float]:
+        """{symbol: the latest close on or before *target*, at most PRICE_LOOKBACK_DAYS old}."""
+        floor = target - timedelta(days=PRICE_LOOKBACK_DAYS)
+        prices: dict[str, float] = {}
+        for symbol, dates in self._dates.items():
+            i = bisect_right(dates, target) - 1
+            if i >= 0 and dates[i] >= floor:
+                prices[symbol] = self._closes[symbol][i]
+        return prices
 
 
 def _first_close_on_or_after(closes: list[date], target: date) -> Optional[date]:
@@ -199,13 +215,13 @@ def run(
     # delay_days = 1 mean "the next business day", as EngineConfig documents,
     # where a Friday filing used to fill at Friday's close like delay 0.
     symbols = {t.asset_symbol for t in all_trades} | {"SPY"}
-    closes = _closes_by_symbol(db, symbols, sim_start, sim_end)
+    book = _PriceBook(db, symbols, sim_start, sim_end)
     trades_by_exec: dict[date, list[Trade]] = {}
     for t in all_trades:
         scheduled = t.disclosure_date + timedelta(days=config.delay_days)
         if not sim_start <= scheduled <= sim_end:
             continue
-        exec_date = _first_close_on_or_after(closes.get(t.asset_symbol, []), scheduled)
+        exec_date = _first_close_on_or_after(book.close_dates(t.asset_symbol), scheduled)
         # The same tolerance the price lookup applies backwards: no close
         # within PRICE_LOOKBACK_DAYS means no fill.
         if exec_date is None or (exec_date - scheduled).days > PRICE_LOOKBACK_DAYS:
@@ -220,7 +236,7 @@ def run(
     # zero return: volatility came out roughly 15% low, the mean daily return
     # roughly 30% low, and the risk-free rate was charged on 365 days a year
     # instead of 252. Every fill date above is one of these days.
-    trading_days = sorted({day for days in closes.values() for day in days})
+    trading_days = book.trading_days()
 
     portfolio = Portfolio(initial_capital=config.initial_capital)
     history: list[PortfolioPoint] = []
@@ -230,7 +246,7 @@ def run(
 
     for current in trading_days:
         day_trades = trades_by_exec.get(current, [])
-        prices = _prices_on_date(db, symbols, current)
+        prices = book.on(current)
 
         # ── Execute trades ───────────────────────────────────────────────────
         if day_trades:

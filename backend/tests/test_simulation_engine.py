@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.core.database import Base
@@ -77,30 +77,34 @@ def _trader_id(session) -> int:
 
 # ── The simulated window is bounded by the price data ─────────────────────────
 
-def test_a_window_far_beyond_the_price_data_costs_only_the_price_data(db, monkeypatch):
+def test_a_simulation_costs_a_handful_of_queries_whatever_window_it_is_given(db):
     """
     start_date and end_date arrive unvalidated from three open POST routes, and
     the engine walked every calendar day between them with a query per day. A
     100-year window measured 61 s on one worker thread against the synthetic
-    seed; 1900-9999 is about 80 minutes, per request, per thread.
+    seed; 1900-9999 is about 80 minutes, per request, per thread. Even inside
+    the data a run was about a thousand queries, 5-7 s, which Monte Carlo
+    repeats up to 2,000 times.
+
+    Now the window is clamped to the price data and the prices are read once.
     """
-    budget = (END - START).days + 1
-    calls = 0
-    real = engine._prices_on_date
+    budget = 20
+    statements = 0
 
-    def counted(*args, **kwargs):
-        nonlocal calls
-        calls += 1
-        if calls > budget:
-            raise AssertionError(
-                f"more than {budget} price lookups for {budget} days of price data"
-            )
-        return real(*args, **kwargs)
+    def count(*_args, **_kwargs):
+        nonlocal statements
+        statements += 1
+        if statements > budget:
+            raise AssertionError(f"a single run issued more than {budget} queries")
 
-    monkeypatch.setattr(engine, "_prices_on_date", counted)
-    result = engine.run(db, EngineConfig(
-        trader_id=_trader_id(db), start_date=date(1900, 1, 1), end_date=date(9999, 12, 1),
-    ))
+    bind = db.get_bind()
+    event.listen(bind, "before_cursor_execute", count)
+    try:
+        result = engine.run(db, EngineConfig(
+            trader_id=_trader_id(db), start_date=date(1900, 1, 1), end_date=date(9999, 12, 1),
+        ))
+    finally:
+        event.remove(bind, "before_cursor_execute", count)
 
     assert (result.simulation_start, result.simulation_end) == (START, END)
     assert result.benchmark_return_pct is not None
