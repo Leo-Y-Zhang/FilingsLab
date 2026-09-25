@@ -1,7 +1,17 @@
 # Dependencies are version-pinned for reproducible builds.
-# Security note: python-dotenv (1.2.2), requests (2.33.0) and pytest (9.0.3) are held
-# at their advisory-patched versions — do not downgrade below these.
-fastapi==0.115.6
+# Security note: python-dotenv (1.2.2), requests (2.33.0), pytest (9.0.3) and
+# starlette (1.7.0) are held at their advisory-patched versions — do not
+# downgrade below these. starlette is pinned directly because fastapi only
+# bounds it from below.
+#
+# fastapi is held at 0.136.x on purpose. From 0.137.0 on, include_router no
+# longer flattens routes onto the app, slowapi's SlowAPIMiddleware stops finding
+# the endpoint, and the 120/minute default limit silently stops applying to every
+# route without its own @limiter.limit (/api/traders/{id} answered 140 straight
+# requests). tests/test_rate_limit_contract.py goes red on that; do not take a
+# fastapi bump past 0.136 without it green.
+fastapi==0.136.3
+starlette==1.7.0
 uvicorn[standard]==0.32.1
 sqlalchemy==2.0.36
 psycopg2-binary==2.9.10
