@@ -256,6 +256,12 @@ def run(
                     per_trade_returns.append(pnl_pct)
                     executed_count += 1
 
+            # Equal weight is 1/N of the cash left once the day's sells have
+            # settled, fixed before the first buy. Recomputed from the shrinking
+            # cash inside the loop, the k-th of N buys got (1 - 1/N)^(k-1) / N
+            # of it: 50% and 25% for two buys, with a quarter left idle.
+            equal_share = portfolio.cash / max(1, len(buy_trades))
+
             for trade in buy_trades:
                 price = prices.get(trade.asset_symbol)
                 if price is None:
@@ -268,7 +274,6 @@ def run(
                 if config.allocation_strategy == "proportional":
                     allocation = min(value, max_alloc, portfolio.cash)
                 else:  # equal_weight
-                    equal_share = portfolio.cash / max(1, len(buy_trades))
                     allocation = min(equal_share, max_alloc)
 
                 if allocation <= 0:

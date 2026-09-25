@@ -278,3 +278,36 @@ def test_experiment_1_compares_with_the_benchmark_per_observation(db, monkeypatc
     row = experiments.experiment_1_benchmark_comparison(db).rows[0]
     assert abs(row.t_statistic) < 0.1
     assert not row.statistically_significant
+
+
+# ── Equal weight means equal ──────────────────────────────────────────────────
+
+def test_equal_weight_splits_the_days_cash_equally_between_its_buys():
+    """
+    EngineConfig: "equal_weight: allocate 1/N of available cash, where N is the
+    number of actionable buys on this day". The share was recomputed from the
+    cash left after each buy, so two same-day buys got 50% and 25% and a quarter
+    of the cash sat idle; Experiment 3 compared proportional sizing against that.
+    """
+    session = _session()
+    day = START
+    while day <= END:
+        for symbol in ("ACME", "BETA", "SPY"):
+            session.add(Price(asset_symbol=symbol, date=day, closing_price=100.0))
+        day += timedelta(days=1)
+    trader = Trader(name="Two-buy Trader", category="insider")
+    session.add(trader)
+    session.flush()
+    buy_day = START + timedelta(days=7)
+    session.add(_trade(trader.id, buy_day, "buy", symbol="ACME"))
+    session.add(_trade(trader.id, buy_day, "buy", symbol="BETA"))
+    session.commit()
+
+    result = engine.run(session, EngineConfig(
+        trader_id=trader.id, delay_days=0, allocation_strategy="equal_weight", **_NO_FRICTION,
+    ))
+
+    filled = next(p for p in result.portfolio_history if p.date == buy_day)
+    assert result.executed_trade_count == 2
+    assert filled.cash == pytest.approx(0.0, abs=0.01)
+    assert filled.invested == pytest.approx(100_000.0, abs=0.01)
