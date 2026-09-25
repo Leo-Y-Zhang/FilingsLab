@@ -51,8 +51,10 @@ _ADMIN = [Depends(require_api_token)]
 _LIMIT_BUCKETS = (25, 50, 100, 200)
 
 # Tickers become cache keys and EDGAR searches, so they are validated, not
-# merely upper-cased. Same shape as the forecast router's whitelist.
-_TICKER_RE = re.compile(r"^[A-Za-z0-9.\-]{1,12}$")
+# merely upper-cased. Same shape as the forecast router's whitelist. Matched
+# with fullmatch: a bare `$` also matches before a trailing newline, and the
+# route's [^/]+ segment happily delivers one ("AAPL%0A").
+_TICKER_RE = re.compile(r"[A-Za-z0-9.\-]{1,12}")
 
 # ── What a cold visitor is told ───────────────────────────────────────────────
 # The cold path is two background stages: the EDGAR crawl (~20 s, paced to stay
@@ -261,7 +263,7 @@ def _warming_or_empty(warming: bool) -> dict:
 
 
 def _validate_ticker(ticker: str) -> str:
-    if not _TICKER_RE.match(ticker):
+    if not _TICKER_RE.fullmatch(ticker):
         raise HTTPException(422, f"Invalid ticker: {ticker[:16]!r}")
     return ticker.upper()
 
