@@ -19,8 +19,13 @@ from somewhere nobody validated:
   * third-party exception text (``yfinance``) is logged verbatim;
   * ``api/research.hypothesis_h1`` takes ``category`` as free-text query input.
 
-``scrub`` is deliberately the whole module. One helper at seven call sites is
-auditable; seven inline ``replace`` chains are not.
+A fourth source reaches a sink on every request, validated or not: the request
+log and the ``auth_failed`` warning record the percent-decoded path, raw header
+bytes and a client address that is X-Forwarded-For behind a trusted proxy
+(``core/request_log``, ``core/security``).
+
+``scrub`` is deliberately the whole module. One helper at every call site is
+auditable; a dozen inline ``replace`` chains are not.
 """
 from __future__ import annotations
 

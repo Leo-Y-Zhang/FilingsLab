@@ -20,7 +20,7 @@ Three claims, each watched failing against the unscrubbed code first:
   A. ``scrub`` neutralises the characters that forge a record
   B. the *wiring* holds — every sink still imports ``scrub`` and still passes
      its untrusted argument through it. A helper nobody calls fixes nothing, so
-     this reads the five call sites rather than the helper. It is a source-level
+     this reads the call sites rather than the helper. It is a source-level
      check in the same spirit as
      ``test_rate_limit_contract.test_every_rate_limited_endpoint_declares_a_response_parameter``,
      and needs no database, no network and no import of what it guards.
@@ -90,6 +90,13 @@ def test_scrub_caps_the_length_of_one_field():
 
 _LOG_METHODS = {"debug", "info", "warning", "error", "exception", "critical"}
 
+_REQUEST_FIELDS = {
+    "scrub(request.url.path)",
+    "scrub(request.client.host if request.client else '-')",
+    "scrub(request.headers.get('x-forwarded-for', '-'))",
+    "scrub(request.headers.get('user-agent', '-'), 120)",
+}
+
 # (module, a fragment of the log format string, the arguments that must be
 # scrubbed at that call site). Sources, in order: a cache key built from a
 # request ticker; a symbol and a yfinance exception; an order side and a ticker
@@ -101,6 +108,12 @@ _CONTRACT = [
     ("app/services/paper_broker.py", "Paper %s: %s",                 {"scrub(side.upper())", "scrub(ticker)"}),
     ("app/api/research.py",          "H1 hypothesis test failed",    {"scrub(category)"}),
     ("app/research/hypothesis.py",   "H1 for category %r ran on",    {"scrub(category)"}),
+    # Every request: a percent-decoded path, raw header bytes, and a client
+    # address that is X-Forwarded-For behind a proxy uvicorn trusts.
+    ("app/core/request_log.py",      "path=%s status=%d",            _REQUEST_FIELDS),
+    ("app/core/request_log.py",      "path=%s status=500",           _REQUEST_FIELDS),
+    ("app/core/security.py",         "auth_failed reason=%s",
+     {"scrub(request.url.path)", "scrub(request.client.host if request.client else '-')"}),
 ]
 
 
