@@ -195,3 +195,86 @@ def test_a_sell_fills_at_the_first_close_on_or_after_disclosure():
     # 150 shares bought at 100; $15,000 of them sold at 110, the rest held at 110.
     assert result.executed_trade_count == 2
     assert result.total_return_pct == pytest.approx(1.5, abs=1e-6)
+
+
+# ── One observation per trading day ────────────────────────────────────────────
+
+def _alternating(day: date) -> float:
+    """+2% then -1% on alternate trading days, from 100."""
+    price, d = 100.0, START
+    k = 0
+    while d < day:
+        d += timedelta(days=1)
+        if d.weekday() < 5:
+            price *= 1.02 if k % 2 == 0 else 0.99
+            k += 1
+    return price
+
+
+def test_risk_metrics_are_annualised_from_trading_day_returns():
+    """
+    Fully invested from the first close with no costs, the portfolio's daily
+    returns are ACME's trading-day returns, so its volatility and Sharpe are
+    theirs. Walking calendar days added a zero return for every Saturday and
+    Sunday, and annualising those with sqrt(252) put volatility 14% low here
+    (20.60% against 23.90%) and the Sharpe ratio 17% low (4.32 against 5.23).
+    """
+    session = _session()
+    closes: dict[date, float] = {}
+    day = START
+    while day <= END:
+        if day.weekday() < 5:
+            closes[day] = _alternating(day)
+            session.add(Price(asset_symbol="ACME", date=day, closing_price=closes[day]))
+            session.add(Price(asset_symbol="SPY", date=day, closing_price=400.0))
+        day += timedelta(days=1)
+    trader = Trader(name="All-in Trader", category="insider")
+    session.add(trader)
+    session.flush()
+    session.add(_trade(trader.id, START, "buy", value=10_000_000))   # capped at all the cash
+    session.commit()
+
+    result = engine.run(session, EngineConfig(trader_id=trader.id, delay_days=0, **_NO_FRICTION))
+
+    assert [p.date for p in result.portfolio_history] == sorted(closes)
+    series = [closes[d] for d in sorted(closes)]
+    rets = [(b - a) / a for a, b in zip(series, series[1:])]
+    n = len(rets)
+    mean = sum(rets) / n
+    std = (sum((r - mean) ** 2 for r in rets) / (n - 1)) ** 0.5
+    rf = 0.04 / 252
+    assert result.volatility_pct == pytest.approx(std * 252 ** 0.5 * 100, abs=1e-3)
+    assert result.sharpe_ratio == pytest.approx((mean - rf) / std * 252 ** 0.5, abs=1e-3)
+
+
+def test_experiment_1_compares_with_the_benchmark_per_observation(db, monkeypatch):
+    """
+    Experiment 1 t-tests daily returns against the benchmark's return per day.
+    It divided the benchmark's total by calendar days; with one observation per
+    trading day that understates it by 252/365 and tilts the test towards
+    "outperforms". Here the portfolio earns exactly the benchmark per trading
+    day (0.1% mean over 252 of them in a 365-day window), so the difference
+    must not be significant; the calendar-day divisor made it t = 2.45,
+    p = 0.015.
+    """
+    from app.research import experiments
+
+    template = engine.run(db, EngineConfig(trader_id=_trader_id(db)))
+    n, mean, swing = 252, 0.001, 0.002
+    values = [100_000.0]
+    for i in range(n):
+        values.append(values[-1] * (1 + mean + (swing if i % 2 == 0 else -swing)))
+    fake = template.model_copy(update={
+        "portfolio_history": [
+            template.portfolio_history[0].model_copy(update={"date": START + timedelta(days=i), "portfolio_value": v})
+            for i, v in enumerate(values)
+        ],
+        "simulation_start": START,
+        "simulation_end": START + timedelta(days=365),
+        "benchmark_return_pct": mean * n * 100,
+    })
+    monkeypatch.setattr(experiments, "sim_run", lambda db, cfg: fake)
+
+    row = experiments.experiment_1_benchmark_comparison(db).rows[0]
+    assert abs(row.t_statistic) < 0.1
+    assert not row.statistically_significant

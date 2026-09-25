@@ -198,7 +198,8 @@ def run(
     # delay 0 and 13% at the default delay of 1. Rolling forward also makes
     # delay_days = 1 mean "the next business day", as EngineConfig documents,
     # where a Friday filing used to fill at Friday's close like delay 0.
-    closes = _closes_by_symbol(db, {t.asset_symbol for t in all_trades}, sim_start, sim_end)
+    symbols = {t.asset_symbol for t in all_trades} | {"SPY"}
+    closes = _closes_by_symbol(db, symbols, sim_start, sim_end)
     trades_by_exec: dict[date, list[Trade]] = {}
     for t in all_trades:
         scheduled = t.disclosure_date + timedelta(days=config.delay_days)
@@ -211,7 +212,15 @@ def run(
             continue
         trades_by_exec.setdefault(exec_date, []).append(t)
 
-    symbols = {t.asset_symbol for t in all_trades} | {"SPY"}
+    # Mark to market on trading days only: the days on which any of these
+    # symbols has a close. Every risk metric below is a daily-return statistic
+    # annualised with sqrt(252) against a daily risk-free rate of rf/252, which
+    # presumes one observation per trading day. Walking calendar days gave 365
+    # a year, two in seven of them a weekend repeat of Friday's value, i.e. a
+    # zero return: volatility came out roughly 15% low, the mean daily return
+    # roughly 30% low, and the risk-free rate was charged on 365 days a year
+    # instead of 252. Every fill date above is one of these days.
+    trading_days = sorted({day for days in closes.values() for day in days})
 
     portfolio = Portfolio(initial_capital=config.initial_capital)
     history: list[PortfolioPoint] = []
@@ -219,8 +228,7 @@ def run(
     per_trade_returns: list[float] = []
     executed_count = 0
 
-    current = sim_start
-    while current <= sim_end:
+    for current in trading_days:
         day_trades = trades_by_exec.get(current, [])
         prices = _prices_on_date(db, symbols, current)
 
@@ -287,8 +295,6 @@ def run(
                 cumulative_return=round(cum_ret, 6),
             )
         )
-
-        current += timedelta(days=1)
 
     if not portfolio_values:
         raise ValueError("Simulation produced no data points")
