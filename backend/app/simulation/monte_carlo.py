@@ -40,7 +40,11 @@ def run_monte_carlo(db: Session, mc_config: MonteCarloConfig) -> MonteCarloResul
     if not trader:
         raise ValueError(f"Trader {mc_config.trader_id} not found")
 
-    master_seed = mc_config.random_seed or random.randint(0, 2**31)
+    # `is None`, not falsiness: 0 is a seed, and `or` replaced it with a random one.
+    master_seed = (
+        mc_config.random_seed if mc_config.random_seed is not None
+        else random.randint(0, 2**31)
+    )
     seeder = random.Random(master_seed)
 
     run_returns: list[float] = []

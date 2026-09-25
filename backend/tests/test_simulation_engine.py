@@ -311,3 +311,19 @@ def test_equal_weight_splits_the_days_cash_equally_between_its_buys():
     assert result.executed_trade_count == 2
     assert filled.cash == pytest.approx(0.0, abs=0.01)
     assert filled.invested == pytest.approx(100_000.0, abs=0.01)
+
+
+# ── A Monte Carlo seed of 0 is a seed ─────────────────────────────────────────
+
+def test_monte_carlo_seed_zero_is_reproducible(db):
+    """`random_seed or randint(...)` threw a seed of 0 away for a random one."""
+    def returns(seed):
+        mc = run_monte_carlo(db, MonteCarloConfig(
+            trader_id=_trader_id(db), n_runs=10, random_seed=seed,
+            value_estimation_method="probabilistic",
+        ))
+        return [r.total_return_pct for r in mc.runs]
+
+    first = returns(0)
+    assert len(set(first)) > 1, "the runs do not vary, so this proves nothing"
+    assert returns(0) == first
