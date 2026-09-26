@@ -188,12 +188,13 @@ def run(
         raise ValueError("start_date must precede end_date")
 
     # Clamp the window to the price data, whoever chose it. Outside that range
-    # nothing can be priced, and the day loop below costs a query per calendar
-    # day: start_date and end_date come straight from the open /api/simulate,
-    # /api/simulate/monte-carlo and /api/compare bodies, and a 100-year window
-    # took 61 s of one worker thread (8,000 years, about 80 minutes). The end
-    # was already capped like this when defaulted, so benchmark lookups never
-    # fall outside the price range; now the same holds when it is given.
+    # nothing can be priced. start_date and end_date come straight from the
+    # open /api/simulate, /api/simulate/monte-carlo and /api/compare bodies,
+    # and the day loop used to walk every calendar day between them with a
+    # query per day: a 100-year window took 61 s of one worker thread, and
+    # 1900-9999 about 80 minutes. The end was already capped like this when
+    # defaulted, so benchmark lookups never fall outside the price range; now
+    # the same holds when it is given.
     first_price_date, latest_price_date = (
         db.query(func.min(Price.date), func.max(Price.date)).one()
     )
@@ -210,8 +211,8 @@ def run(
     # used to fill at Friday's close. When the disclosure itself fell on the
     # weekend that close predates it: the simulated follower bought at a price
     # from before the filing was public, which is exactly the look-ahead this
-    # engine exists to rule out. On the synthetic seed that was 25% of fills at
-    # delay 0 and 13% at the default delay of 1. Rolling forward also makes
+    # engine exists to rule out. On the synthetic seed that was 25% of trades
+    # at delay 0 and 13% at the default delay of 1. Rolling forward also makes
     # delay_days = 1 mean "the next business day", as EngineConfig documents,
     # where a Friday filing used to fill at Friday's close like delay 0.
     symbols = {t.asset_symbol for t in all_trades} | {"SPY"}
