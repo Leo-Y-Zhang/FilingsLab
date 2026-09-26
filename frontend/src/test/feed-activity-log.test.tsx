@@ -34,6 +34,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 import App from '@/App'
+import { TOKEN_KEY } from '@/services/operatorToken'
 import { queryClient } from '@/services/queryClient'
 
 const LOG = [
@@ -45,7 +46,7 @@ const LOG = [
 beforeEach(() => {
   vi.clearAllMocks()
   queryClient.clear()
-  sessionStorage.setItem('filingslab_operator_token', 'an-operator-token')
+  sessionStorage.setItem(TOKEN_KEY, 'an-operator-token')
   get.mockImplementation((url: string) => {
     if (url.startsWith('/feed/auto-trader/log')) return Promise.resolve({ data: { count: LOG.length, log: LOG } })
     if (url.startsWith('/feed/auto-trader/config')) return Promise.resolve({ data: { enabled: false } })
