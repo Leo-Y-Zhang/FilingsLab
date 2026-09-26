@@ -7,19 +7,15 @@
  *
  * Pinned in America/New_York, where the bug shows. Watched failing first.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { fmtDate, parseDate } from '@/utils/format'
 
-let savedTz: string | undefined
-
 beforeAll(() => {
-  savedTz = process.env.TZ
-  process.env.TZ = 'America/New_York'
+  vi.stubEnv('TZ', 'America/New_York')
 })
 
 afterAll(() => {
-  if (savedTz === undefined) delete process.env.TZ
-  else process.env.TZ = savedTz
+  vi.unstubAllEnvs()
 })
 
 describe('date-only strings are calendar days', () => {
