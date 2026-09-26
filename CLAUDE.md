@@ -18,13 +18,14 @@ forecasting degrades gracefully when absent.
   `ingestion/` (EDGAR/Senate/House + synthetic GBM fallback), `kronos/`
   (optional forecasting), `services/`, `models/`, `schemas/`, `core/`
   (config, database, security/rate-limit, request logging).
-- `backend/tests/` — 12 files, 165 tests, e.g. `test_statistics.py`,
+- `backend/tests/` — 17 files, 200 tests, e.g. `test_statistics.py`,
   `test_api_security.py`, `test_rate_limit_contract.py`,
   `test_edgar_non_blocking.py`, `test_error_disclosure.py`,
-  `test_research_integrity.py`, `test_log_injection.py`.
+  `test_research_integrity.py`, `test_log_injection.py`,
+  `test_simulation_engine.py`.
 - `frontend/src/` — `pages/`, `components/`, `hooks/`, `services/`, `types/`,
-  `utils/`, `test/` (3 files, 22 tests: routing, anonymous-visitor,
-  warming-poll).
+  `utils/`, `test/` (5 files, 28 tests: routing, anonymous-visitor,
+  warming-poll, date formatting, activity log).
 - `docker-compose.yml` (Postgres + backend + nginx/frontend),
   `backend/Dockerfile`, `frontend/Dockerfile`, `.env.example`.
 
@@ -54,9 +55,9 @@ cd frontend && npx tsc --noEmit
 
 ```
 # backend (no DB needed — tests override the DB dependency with an in-memory fake)
-cd backend && .venv/bin/python -m pytest -q     # 165 passed, ~19s
+cd backend && .venv/bin/python -m pytest -q     # 200 passed, ~35s
 # frontend
-cd frontend && npm test                          # vitest run — 22 passed, ~9s
+cd frontend && npm test                          # vitest run — 28 passed, ~20s
 ```
 Fastest useful subset:
 ```
@@ -70,7 +71,7 @@ CI's two independent jobs — backend `pytest -q` and frontend `npm test` — ar
 the gate; neither needs Postgres, Docker, or real secrets/network (tests
 inject a fake DB and never call EDGAR/Alpaca/Kronos for real). The
 security/contract suites are the part of the gate that matters most given
-this app's risk surface: `test_api_security.py` (44, auth + rate limiting +
+this app's risk surface: `test_api_security.py` (46, auth + rate limiting +
 field bounds), `test_rate_limit_contract.py` (7), `test_error_disclosure.py`
 (20, that an unexpected exception never leaks a traceback into the response),
 and `test_research_integrity.py` (9, that a hypothesis test discloses the
@@ -82,6 +83,10 @@ and honesty guarantees the README makes, not just feature coverage.
 - Backend tests need **no** database, `API_TOKEN`, or network access — the
   test fixture overrides `get_db` with an in-process fake, so `DATABASE_URL`
   can stay at its Postgres-shaped default unset/unreachable.
+- Tests run on SQLite, which does not enforce `VARCHAR(n)` lengths; the
+  deployed database is Postgres, which does. A string column that is too
+  narrow passes every test and fails in production (it happened to
+  `AutoTraderLog.action`), so check new or widened column lengths by hand.
 - Kronos (`requirements-kronos.txt`, torch, ~2GB) is optional; the
   Kronos-dependent test file passes without it (it tests the in-process call
   contract, not real inference) — do not install it in the hook.
