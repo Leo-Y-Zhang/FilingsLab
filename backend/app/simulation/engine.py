@@ -20,6 +20,7 @@ It does not constitute financial advice or real trading of any kind.
 """
 
 import random
+from bisect import bisect_left, bisect_right
 from datetime import date, timedelta
 from typing import Optional
 import logging
@@ -57,22 +58,59 @@ def _lookup_price(db: Session, symbol: str, target: date) -> Optional[float]:
     return float(row.closing_price) if row else None
 
 
-def _prices_on_date(db: Session, symbols: set[str], target: date) -> dict[str, float]:
-    """Return {symbol: price} for all known symbols on or before target."""
-    from_date = target - timedelta(days=PRICE_LOOKBACK_DAYS)
-    rows = (
-        db.query(Price)
-        .filter(
-            Price.asset_symbol.in_(symbols),
-            Price.date >= from_date,
-            Price.date <= target,
+class _PriceBook:
+    """
+    Every close a run can touch, loaded with one query.
+
+    The day loop used to ask the database for each day's prices: about a
+    thousand ORM queries per run over four years, 5-7 s on the synthetic seed.
+    Monte Carlo repeats the run up to 2,000 times and comparison six, so the
+    UI's default 300-run Monte Carlo took about half an hour against a 120 s
+    client timeout, and each anonymous request held an anyio worker thread for
+    as long. ``on`` answers exactly what that per-day query did.
+    """
+
+    def __init__(self, db: Session, symbols: set[str], start: date, end: date) -> None:
+        rows = (
+            db.query(Price.asset_symbol, Price.date, Price.closing_price)
+            .filter(
+                Price.asset_symbol.in_(symbols),
+                Price.date >= start - timedelta(days=PRICE_LOOKBACK_DAYS),
+                Price.date <= end,
+            )
+            .order_by(Price.date)
+            .all()
         )
-        .all()
-    )
-    result: dict[str, float] = {}
-    for row in sorted(rows, key=lambda r: r.date):
-        result[row.asset_symbol] = float(row.closing_price)
-    return result
+        self._start = start
+        self._dates: dict[str, list[date]] = {}
+        self._closes: dict[str, list[float]] = {}
+        for symbol, day, close in rows:
+            self._dates.setdefault(symbol, []).append(day)
+            self._closes.setdefault(symbol, []).append(float(close))
+
+    def close_dates(self, symbol: str) -> list[date]:
+        """Ascending dates on or after the run's start on which *symbol* closed."""
+        dates = self._dates.get(symbol, [])
+        return dates[bisect_left(dates, self._start):]
+
+    def trading_days(self) -> list[date]:
+        """Every date on or after the run's start on which any symbol closed."""
+        return sorted({d for symbol in self._dates for d in self.close_dates(symbol)})
+
+    def on(self, target: date) -> dict[str, float]:
+        """{symbol: the latest close on or before *target*, at most PRICE_LOOKBACK_DAYS old}."""
+        floor = target - timedelta(days=PRICE_LOOKBACK_DAYS)
+        prices: dict[str, float] = {}
+        for symbol, dates in self._dates.items():
+            i = bisect_right(dates, target) - 1
+            if i >= 0 and dates[i] >= floor:
+                prices[symbol] = self._closes[symbol][i]
+        return prices
+
+
+def _first_close_on_or_after(closes: list[date], target: date) -> Optional[date]:
+    i = bisect_left(closes, target)
+    return closes[i] if i < len(closes) else None
 
 
 # ── Value estimation ──────────────────────────────────────────────────────────
@@ -144,24 +182,62 @@ def run(
         raise ValueError(f"No trades found for trader {config.trader_id}")
 
     sim_start = config.start_date or all_trades[0].disclosure_date
-
-    # Cap end date to the latest price in the database so benchmark lookups
-    # never fall outside the synthetic price range.
-    latest_price_date: Optional[date] = db.query(func.max(Price.date)).scalar()
-    default_end = latest_price_date if latest_price_date else date.today()
-    sim_end = config.end_date or default_end
+    sim_end = config.end_date or date.today()
 
     if sim_start >= sim_end:
         raise ValueError("start_date must precede end_date")
 
-    # Index trades by their execution date (disclosure_date + delay_days)
+    # Clamp the window to the price data, whoever chose it. Outside that range
+    # nothing can be priced. start_date and end_date come straight from the
+    # open /api/simulate, /api/simulate/monte-carlo and /api/compare bodies,
+    # and the day loop used to walk every calendar day between them with a
+    # query per day: a 100-year window took 61 s of one worker thread, and
+    # 1900-9999 about 80 minutes. The end was already capped like this when
+    # defaulted, so benchmark lookups never fall outside the price range; now
+    # the same holds when it is given.
+    first_price_date, latest_price_date = (
+        db.query(func.min(Price.date), func.max(Price.date)).one()
+    )
+    if latest_price_date is None:
+        raise ValueError("No price data available")
+    sim_start = max(sim_start, first_price_date)
+    sim_end = min(sim_end, latest_price_date)
+    if sim_start >= sim_end:
+        raise ValueError("No price data in the requested window")
+
+    # Index trades by their execution date: the first close of the traded
+    # asset on or after disclosure_date + delay_days. Prices are marked with
+    # the last close on or before a day, so a trade scheduled for a Saturday
+    # used to fill at Friday's close. When the disclosure itself fell on the
+    # weekend that close predates it: the simulated follower bought at a price
+    # from before the filing was public, which is exactly the look-ahead this
+    # engine exists to rule out. On the synthetic seed that was 25% of trades
+    # at delay 0 and 13% at the default delay of 1. Rolling forward also makes
+    # delay_days = 1 mean "the next business day", as EngineConfig documents,
+    # where a Friday filing used to fill at Friday's close like delay 0.
+    symbols = {t.asset_symbol for t in all_trades} | {"SPY"}
+    book = _PriceBook(db, symbols, sim_start, sim_end)
     trades_by_exec: dict[date, list[Trade]] = {}
     for t in all_trades:
-        exec_date = t.disclosure_date + timedelta(days=config.delay_days)
-        if sim_start <= exec_date <= sim_end:
-            trades_by_exec.setdefault(exec_date, []).append(t)
+        scheduled = t.disclosure_date + timedelta(days=config.delay_days)
+        if not sim_start <= scheduled <= sim_end:
+            continue
+        exec_date = _first_close_on_or_after(book.close_dates(t.asset_symbol), scheduled)
+        # The same tolerance the price lookup applies backwards: no close
+        # within PRICE_LOOKBACK_DAYS means no fill.
+        if exec_date is None or (exec_date - scheduled).days > PRICE_LOOKBACK_DAYS:
+            continue
+        trades_by_exec.setdefault(exec_date, []).append(t)
 
-    symbols = {t.asset_symbol for t in all_trades} | {"SPY"}
+    # Mark to market on trading days only: the days on which any of these
+    # symbols has a close. Every risk metric below is a daily-return statistic
+    # annualised with sqrt(252) against a daily risk-free rate of rf/252, which
+    # presumes one observation per trading day. Walking calendar days gave 365
+    # a year, two in seven of them a weekend repeat of Friday's value, i.e. a
+    # zero return: volatility came out roughly 15% low, the mean daily return
+    # roughly 30% low, and the risk-free rate was charged on 365 days a year
+    # instead of 252. Every fill date above is one of these days.
+    trading_days = book.trading_days()
 
     portfolio = Portfolio(initial_capital=config.initial_capital)
     history: list[PortfolioPoint] = []
@@ -169,10 +245,9 @@ def run(
     per_trade_returns: list[float] = []
     executed_count = 0
 
-    current = sim_start
-    while current <= sim_end:
+    for current in trading_days:
         day_trades = trades_by_exec.get(current, [])
-        prices = _prices_on_date(db, symbols, current)
+        prices = book.on(current)
 
         # ── Execute trades ───────────────────────────────────────────────────
         if day_trades:
@@ -198,6 +273,12 @@ def run(
                     per_trade_returns.append(pnl_pct)
                     executed_count += 1
 
+            # Equal weight is 1/N of the cash left once the day's sells have
+            # settled, fixed before the first buy. Recomputed from the shrinking
+            # cash inside the loop, the k-th of N buys got (1 - 1/N)^(k-1) / N
+            # of it: 50% and 25% for two buys, with a quarter left idle.
+            equal_share = portfolio.cash / max(1, len(buy_trades))
+
             for trade in buy_trades:
                 price = prices.get(trade.asset_symbol)
                 if price is None:
@@ -210,7 +291,6 @@ def run(
                 if config.allocation_strategy == "proportional":
                     allocation = min(value, max_alloc, portfolio.cash)
                 else:  # equal_weight
-                    equal_share = portfolio.cash / max(1, len(buy_trades))
                     allocation = min(equal_share, max_alloc)
 
                 if allocation <= 0:
@@ -237,8 +317,6 @@ def run(
                 cumulative_return=round(cum_ret, 6),
             )
         )
-
-        current += timedelta(days=1)
 
     if not portfolio_values:
         raise ValueError("Simulation produced no data points")

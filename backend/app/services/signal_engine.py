@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 from datetime import date, datetime
 from typing import Optional
 
@@ -56,16 +57,21 @@ _ROLE_BASE: dict[str, float] = {
     "insider":     7.0,
 }
 
+# Keys are matched as whole words of the role. A substring test found "cto"
+# inside "director", so every plain Director — the label edgar._parse_xml gives
+# a non-officer board member — scored as a CTO (15) and above an officer (13).
+_ROLE_WORD_RE = re.compile(r"[a-z0-9%]+")
+
 
 def _conviction_score(
     trader_role: str,
     amount_est: Optional[float],
     cluster_count: int = 1,
 ) -> float:
-    role_lower = (trader_role or "").lower()
+    role_words = set(_ROLE_WORD_RE.findall((trader_role or "").lower()))
     base = 7.0
     for key, val in _ROLE_BASE.items():
-        if key in role_lower:
+        if key in role_words:
             base = val
             break
 

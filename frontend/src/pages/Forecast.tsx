@@ -9,6 +9,7 @@ import {
 import clsx from 'clsx'
 import { useKronosStatus, useForecastHistory, useForecast } from '@/hooks/useApi'
 import type { ForecastPoint } from '@/types'
+import { parseDate } from '@/utils/format'
 
 const PRED_DAY_OPTIONS = [5, 10, 15, 20, 30]
 
@@ -27,7 +28,7 @@ function ChartTooltip({ active, payload, label }: any) {
   return (
     <div className="rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-xs shadow-xl">
       <p className="mb-1 font-medium text-slate-300">
-        {new Date(label).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+        {parseDate(label).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
         {isForecast && (
           <span className="ml-2 rounded bg-violet-500/20 px-1 py-0.5 text-violet-400">AI</span>
         )}
@@ -325,7 +326,7 @@ export default function Forecast() {
                 dataKey="date"
                 tick={{ fontSize: 10, fill: '#64748b' }}
                 tickLine={false}
-                tickFormatter={d => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                tickFormatter={d => parseDate(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                 interval="preserveStartEnd"
               />
               <YAxis
@@ -409,7 +410,7 @@ export default function Forecast() {
                   return (
                     <tr key={p.date} className="hover:bg-surface-elevated/40 transition-colors">
                       <td className="px-4 py-2.5 font-medium text-slate-300">
-                        {new Date(p.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        {parseDate(p.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono tabular-nums text-slate-300">
                         ${p.open.toFixed(2)}

@@ -330,8 +330,10 @@ function AutoTraderPanel() {
                   {row.action}
                 </span>
                 <span className="text-white">{row.ticker}</span>
-                {row.notional && <span className="text-slate-400">${row.notional.toLocaleString('en-US', {maximumFractionDigits:0})}</span>}
-                {row.score && <span className="text-slate-600">score {row.score.toFixed(0)}</span>}
+                {/* `> 0`, not truthiness: `{0 && <span/>}` renders a bare "0",
+                    and skip rows carry notional 0 while exit rows carry score 0. */}
+                {row.notional > 0 && <span className="text-slate-400">${row.notional.toLocaleString('en-US', {maximumFractionDigits:0})}</span>}
+                {row.score > 0 && <span className="text-slate-600">score {row.score.toFixed(0)}</span>}
                 <span className="ml-auto text-slate-700 flex-shrink-0">
                   {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ''}
                 </span>

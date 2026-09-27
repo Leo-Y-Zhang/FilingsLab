@@ -40,7 +40,11 @@ def run_monte_carlo(db: Session, mc_config: MonteCarloConfig) -> MonteCarloResul
     if not trader:
         raise ValueError(f"Trader {mc_config.trader_id} not found")
 
-    master_seed = mc_config.random_seed or random.randint(0, 2**31)
+    # `is None`, not falsiness: 0 is a seed, and `or` replaced it with a random one.
+    master_seed = (
+        mc_config.random_seed if mc_config.random_seed is not None
+        else random.randint(0, 2**31)
+    )
     seeder = random.Random(master_seed)
 
     run_returns: list[float] = []
@@ -49,6 +53,7 @@ def run_monte_carlo(db: Session, mc_config: MonteCarloConfig) -> MonteCarloResul
     run_finals: list[float] = []
     run_summaries: list[MonteCarloRunSummary] = []
     run_histories: list[list[PortfolioPoint]] = []
+    sim_window = None   # the window the engine actually simulated, after clamping
 
     for run_id in range(mc_config.n_runs):
         run_seed = seeder.randint(0, 2**31)
@@ -77,6 +82,7 @@ def run_monte_carlo(db: Session, mc_config: MonteCarloConfig) -> MonteCarloResul
             logger.warning("MC run %d failed: %s", run_id, exc)
             continue
 
+        sim_window = sim_window or (result.simulation_start, result.simulation_end)
         run_returns.append(result.total_return_pct)
         run_sharpes.append(result.sharpe_ratio)
         run_drawdowns.append(result.max_drawdown_pct)
@@ -106,9 +112,7 @@ def run_monte_carlo(db: Session, mc_config: MonteCarloConfig) -> MonteCarloResul
     pcts = bootstrap_percentile(run_returns, [2.5, 16, 50, 84, 97.5])
     stats = distribution_stats(run_returns)
 
-    start = mc_config.start_date or (run_histories[0][0].date if run_histories else None)
-    end   = mc_config.end_date   or (run_histories[0][-1].date if run_histories else None)
-    bench_ret = _benchmark_return(db, start, end)
+    bench_ret = _benchmark_return(db, *sim_window)
     bench_ret_pct = bench_ret * 100 if bench_ret is not None else None
 
     prob_positive = sum(1 for r in run_returns if r > 0) / n

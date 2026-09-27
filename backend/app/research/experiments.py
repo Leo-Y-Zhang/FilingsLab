@@ -87,8 +87,11 @@ def experiment_1_benchmark_comparison(db: Session) -> Experiment1Result:
                 (portfolio_vals[i] - portfolio_vals[i-1]) / portfolio_vals[i-1]
                 for i in range(1, len(portfolio_vals))
             ]
-            period_days = max(1, (result.simulation_end - result.simulation_start).days)
-            bench_daily = (bench_pct / 100) / max(period_days, 1) if bench_pct else 0.0
+            # The benchmark's return per observation. The engine marks to market
+            # on trading days, so that is the total over the number of daily
+            # returns, not over calendar days, which would understate it by
+            # about 252/365 and tilt the t-test towards "outperforms".
+            bench_daily = (bench_pct / 100) / len(daily_rets) if bench_pct else 0.0
             t_stat, p_val = one_sample_t_test([r * 100 for r in daily_rets], bench_daily * 100)
         else:
             t_stat, p_val = 0.0, 1.0

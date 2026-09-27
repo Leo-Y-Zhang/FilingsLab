@@ -469,3 +469,53 @@ failures and logs a WARNING, so no live request was found that reaches the new
 branch - it is covered by test, not by a reproduction. The cosmetic half of the
 same pass: `feed.py` bound `except Exception as exc` and never used `exc`, left
 over from finding 11; the binding is gone.
+
+---
+
+## Round 5 (2026-09-26)
+
+**14. Starlette 0.41.3 let a `Host` header rename the logged path (LOW).**
+pip-audit reported seven advisories against the Starlette that fastapi 0.115.6
+resolved to. Most sit in code this app does not use (StaticFiles, FileResponse
+ranges, form parsing), but CVE-2026-48710 is in `request.url`, which the
+request log and the `auth_failed` warning both read: a probe of
+`/api/feed/portfolio` sent with `Host: evil.example/api/other?` was logged as
+`path=/api/other` on both lines. Port 8000 is published directly, so nothing
+normalises the header first, and finding 4 makes those lines the only
+detection. Fixed by moving to fastapi 0.136.3 and pinning starlette 1.7.0;
+pip-audit is clean. **fastapi stays below 0.137**: from 0.137.0 `include_router`
+stops flattening routes, slowapi's middleware finds no endpoint, and the
+120/minute default silently stops applying to every route without its own
+decorator (`test_rate_limit_contract.py` goes red, which is how it was found).
+Covered by `tests/test_request_log_integrity.py`.
+
+**15. The request log was the one sink `scrub` never reached (LOW).**
+The path arrives percent-decoded, so `/api/x%1b%5b2J` wrote a raw ESC into the
+record, and uvicorn passes header bytes 0x80-0xFF through as C1 controls, so a
+User-Agent or X-Forwarded-For could carry NEL or CSI. Measured on a live
+process: `forwarded_for=1.2.3.4<NEL>FORGED`. Path, client address,
+X-Forwarded-For and User-Agent now go through `logsafe.scrub` in the request
+log and the `auth_failed` warning; three behavioural tests and three
+wiring-contract rows, all watched failing first.
+
+**16. The feed's ticker allow-list accepted a trailing newline (LOW).**
+`_validate_ticker` used `re.match` with a `$`-anchored pattern, and `$` also
+matches before a final newline: `GET /api/feed/disclosures/AAPL%0A` answered
+200 with `"ticker": "AAPL\n"`, a second cache key and EDGAR crawl for AAPL.
+Now `fullmatch`. The forecast router and the auto-trader strip first and were
+not affected.
+
+**17. The research surface could hold worker threads for hours (HIGH).**
+The same failure mode as finding 9, reached through `/api/simulate`,
+`/api/simulate/monte-carlo` and `/api/compare` instead of the feed.
+`start_date` and `end_date` were unbounded and the engine walked every
+calendar day between them with a database query per day: a 100-year window
+took 61 s of one thread, 1900-9999 about 80 minutes. Even inside the data a
+run was about a thousand queries (5-7 s), so the UI's default 300-run Monte
+Carlo needed about half an hour, well past the client's 120 s timeout, while
+holding one of the 40 anyio threads every route shares. The window is now
+clamped to the price data and a run reads its prices in one query: six
+queries and about 0.2 s per run on SQLite and PostgreSQL 16, and the default
+300-run Monte Carlo answered in 24 s against PostgreSQL 16 on the synthetic
+seed. `tests/test_simulation_engine.py` bounds a run asked for 1900-9999 at 20
+SQL statements.

@@ -25,6 +25,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import get_settings
+from app.core.logsafe import scrub
 
 logger = logging.getLogger("app.security")
 
@@ -39,9 +40,9 @@ def _deny(request: Request, reason: str, status_code: int, detail: str) -> None:
         "auth_failed reason=%s request_id=%s client_ip=%s method=%s path=%s",
         reason,
         getattr(request.state, "request_id", "-"),
-        request.client.host if request.client else "-",
+        scrub(request.client.host if request.client else "-"),
         request.method,
-        request.url.path,
+        scrub(request.url.path),
     )
     raise HTTPException(
         status_code=status_code,

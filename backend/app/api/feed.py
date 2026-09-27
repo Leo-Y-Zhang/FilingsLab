@@ -18,6 +18,7 @@ import logging
 import re
 import threading
 import time
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
 import yfinance as yf
@@ -51,8 +52,10 @@ _ADMIN = [Depends(require_api_token)]
 _LIMIT_BUCKETS = (25, 50, 100, 200)
 
 # Tickers become cache keys and EDGAR searches, so they are validated, not
-# merely upper-cased. Same shape as the forecast router's whitelist.
-_TICKER_RE = re.compile(r"^[A-Za-z0-9.\-]{1,12}$")
+# merely upper-cased. Same shape as the forecast router's whitelist. Matched
+# with fullmatch: a bare `$` also matches before a trailing newline, and the
+# route's [^/]+ segment happily delivers one ("AAPL%0A").
+_TICKER_RE = re.compile(r"[A-Za-z0-9.\-]{1,12}")
 
 # ── What a cold visitor is told ───────────────────────────────────────────────
 # The cold path is two background stages: the EDGAR crawl (~20 s, paced to stay
@@ -261,9 +264,20 @@ def _warming_or_empty(warming: bool) -> dict:
 
 
 def _validate_ticker(ticker: str) -> str:
-    if not _TICKER_RE.match(ticker):
+    if not _TICKER_RE.fullmatch(ticker):
         raise HTTPException(422, f"Invalid ticker: {ticker[:16]!r}")
     return ticker.upper()
+
+def _utc_iso(dt: Optional[datetime]) -> Optional[str]:
+    """
+    The auto-trader stamps its rows with naive ``datetime.utcnow()``. Sent as a
+    bare ISO string, a browser parses that as *local* time, so "Last run" and
+    the activity log were off by the operator's UTC offset. Say it is UTC.
+    """
+    if dt is None:
+        return None
+    return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).isoformat()
+
 
 def _current_price(ticker: str) -> Optional[float]:
     try:
@@ -433,7 +447,7 @@ def get_auto_trader_config(db: Session = Depends(get_db)):
         "take_profit_pct":    cfg.take_profit_pct,
         "stop_loss_pct":      cfg.stop_loss_pct,
         "run_interval_mins":  cfg.run_interval_mins,
-        "last_run_at":        cfg.last_run_at.isoformat() if cfg.last_run_at else None,
+        "last_run_at":        _utc_iso(cfg.last_run_at),
         "last_run_summary":   cfg.last_run_summary,
     }
 
@@ -492,7 +506,7 @@ def get_auto_trader_log(db: Session = Depends(get_db), limit: int = Query(50, ge
                 "score":      r.score,
                 "price":      r.price,
                 "notional":   r.notional,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "created_at": _utc_iso(r.created_at),
             }
             for r in rows
         ],

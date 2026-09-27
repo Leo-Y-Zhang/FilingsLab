@@ -14,7 +14,7 @@ Public trading disclosures by US politicians (STOCK Act) and corporate insiders 
 
 | Feature | Description |
 |---|---|
-| **Disclosure-date execution** | Trades fire at `disclosure_date + delay_days`, not the trade date, so the backtest has no look-ahead into non-public information |
+| **Disclosure-date execution** | Trades fill at the first close on or after `disclosure_date + delay_days`, not at the trade date, so the backtest has no look-ahead into non-public information |
 | **Alpha decay analysis** | Sweeps execution delay (0–60 days) and reports the excess-return half-life and the delay at which the signal reaches zero |
 | **Monte Carlo engine** | N independent runs with optional delay noise; reports 68% and 95% bootstrap confidence intervals |
 | **Hypothesis testing** | H1: disclosed trades earn excess returns vs a buy-and-hold benchmark; H2: shorter disclosure delay outperforms longer delay |
@@ -29,7 +29,7 @@ Public trading disclosures by US politicians (STOCK Act) and corporate insiders 
 
 **Backend** — Python 3.11, FastAPI, SQLAlchemy 2.0, Pydantic v2. Analytics (bootstrap CIs, t-tests, ratios) are hand-written on NumPy with no heavyweight stats dependency. Real disclosure ingestion (SEC EDGAR / Senate / House) with a synthetic Geometric-Brownian-Motion fallback. Optional Kronos (PyTorch) price forecasting and an Alpaca paper-trading broker, both of which degrade gracefully when absent.
 
-**Frontend** — React 18 + TypeScript + Vite, TanStack Query for server state, Recharts for visualisation, Tailwind CSS.
+**Frontend** — React 19 + TypeScript + Vite, TanStack Query for server state, Recharts for visualisation, Tailwind CSS.
 
 ---
 
@@ -69,10 +69,10 @@ npm run dev
 
 ```bash
 cd backend
-python -m pytest -q      # 165 tests (analytics + API security + rate-limit contract + error disclosure + research integrity + resource bounds + log-injection)
+python -m pytest -q      # 200 tests (analytics + simulation engine + signal scoring + API security + rate-limit contract + error disclosure + research integrity + resource bounds + log-injection)
 ```
 
-43 tests cover the pure-Python analytics layer (returns, Sharpe/Sortino, drawdown, win rate, bootstrap CIs, t-tests); 44 cover the API security boundary — authentication, rate limiting, request-field bounds, and request logging; 7 pin the rate-limit *contract* (a limited endpoint still answers 200 with a body, and its bucket is the route rather than the concrete URL); 8 pin that neither the SEC EDGAR crawl nor the per-disclosure enrichment ever runs on a request thread; 5 pin that every caller-keyed dictionary on a public path stays bounded when driven with 500 distinct keys; 5 pin the cold-start contract (data on the second request, and a warming response that states the wait); 6 pin that the auto-trader gets its Kronos forecast in process rather than over its own rate-limited loopback API; 2 pin that a seeded performance row records the trade activity the simulation actually produced instead of an empty win rate and trade count; 20 pin that a handler answers an unexpected exception with a fixed string and puts the traceback in the server log rather than in the response body, and that the 404 on alpha decay belongs to the trader lookup alone; 9 pin that a hypothesis test which drops a trader from its sample logs the skip and discloses the sample it actually used; 16 (`test_log_injection.py`) pin that untrusted text reaching a log line — an EDGAR cache key, a ticker or symbol from a remote Form 4 or yfinance, a third-party exception message, a free-text research category — is scrubbed so it cannot forge or split a log record (the CodeQL py/log-injection fix-verification suite). Ingestion is still untested, and the simulation and comparison routers only on that failure path. The frontend has 22 tests (`cd frontend && npm test`): 8 routing, 6 covering what an anonymous visitor is allowed to request, 8 covering the warming poll interval and banner.
+43 tests cover the pure-Python analytics layer (returns, Sharpe/Sortino, drawdown, win rate, bootstrap CIs, t-tests); 11 (`test_simulation_engine.py`) pin the simulation engine itself — a fill never uses a close from before `disclosure_date + delay_days`, the portfolio is marked on trading days so the √252 annualisation holds, equal weight is equal, the simulated window is bounded by the price data, and a Monte Carlo seed of 0 reproduces; 11 pin the signal engine's role ranking; 4 (`test_auto_trader_api.py`, `test_auto_trader_exits.py`) pin that the auto-trader's timestamps are sent as UTC and that an exit is logged, at the value it sold, in a column wide enough for PostgreSQL; 46 cover the API security boundary — authentication, rate limiting, request-field bounds, the ticker allow-list, and request logging; 7 pin the rate-limit *contract* (a limited endpoint still answers 200 with a body, and its bucket is the route rather than the concrete URL); 8 pin that neither the SEC EDGAR crawl nor the per-disclosure enrichment ever runs on a request thread; 5 pin that every caller-keyed dictionary on a public path stays bounded when driven with 500 distinct keys; 5 pin the cold-start contract (data on the second request, and a warming response that states the wait); 6 pin that the auto-trader gets its Kronos forecast in process rather than over its own rate-limited loopback API; 2 pin that a seeded performance row records the trade activity the simulation actually produced instead of an empty win rate and trade count; 20 pin that a handler answers an unexpected exception with a fixed string and puts the traceback in the server log rather than in the response body, and that the 404 on alpha decay belongs to the trader lookup alone; 9 pin that a hypothesis test which drops a trader from its sample logs the skip and discloses the sample it actually used; 19 (`test_log_injection.py`) and 4 (`test_request_log_integrity.py`) pin that untrusted text reaching a log line — an EDGAR cache key, a ticker or symbol from a remote Form 4 or yfinance, a third-party exception message, a free-text research category, and the path, headers and client address on every request — is scrubbed so it cannot forge or split a log record, and that a `Host` header cannot rename the logged path. Ingestion is still untested, and the simulation and comparison routers only on their failure path. The frontend has 28 tests (`cd frontend && npm test`): 8 routing, 6 covering what an anonymous visitor is allowed to request, 8 covering the warming poll interval and banner, 5 pinning that API calendar dates render as the same day in every timezone, and 1 for the auto-trader activity log.
 
 ---
 
@@ -118,10 +118,10 @@ With no `API_TOKEN` set those routes return **503 (disabled)** — never 200. In
 
 ### Disclosure-date execution model
 
-Trades are executed at `disclosure_date + delay_days`. Using the actual `trade_date` would introduce look-ahead bias, since a disclosure is only publicly available after the disclosure date.
+Trades are executed at `disclosure_date + delay_days`, at the first close on or after that date: a trade that falls on a weekend or holiday fills at the next session's close, never the previous one. Using the actual `trade_date` would introduce look-ahead bias, since a disclosure is only publicly available after the disclosure date. The portfolio is marked to market on trading days, one observation per session, which is what the √252 annualisation of volatility, Sharpe and Sortino assumes.
 
 ```
-Simulated execution date = disclosure_date + delay_days
+Simulated execution date = first trading day on or after (disclosure_date + delay_days)
 ```
 
 ### Alpha decay
@@ -156,7 +156,7 @@ filingslab/
 │   │   ├── services/         # Alpaca broker, EDGAR feed, Kronos forecaster
 │   │   ├── simulation/       # engine, portfolio, monte carlo
 │   │   └── main.py
-│   ├── tests/                # analytics unit tests (40)
+│   ├── tests/                # pytest suite (200 tests)
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -187,7 +187,7 @@ filingslab/
 - This is a research and portfolio project, not a production trading system.
 - Backtest results depend on the completeness and timeliness of the disclosure feed; the synthetic fallback is illustrative only and carries no predictive meaning.
 - Value-based fills use midpoint estimates and standard transaction-cost assumptions, not real fill data or market impact.
-- Automated tests cover the analytics layer, the API security boundary, the rate-limit contract, error disclosure, research integrity, resource bounds, log injection and the cold-start contract (165 backend tests) plus 22 frontend tests; ingestion is not under test, and the simulation and comparison routers are covered only on their failure path.
+- Automated tests cover the analytics layer, the simulation engine, signal scoring, the API security boundary, the rate-limit contract, error disclosure, research integrity, resource bounds, log injection and the cold-start contract (200 backend tests) plus 28 frontend tests; ingestion is not under test, and the simulation and comparison routers are covered only on their failure path.
 - Both hypothesis tests skip a trader whose simulation fails rather than failing the whole request, so a result can be computed on a subset of the eligible traders. When that happens it is stated: `traders_total`, `traders_used` and `traders_skipped` are on the response and `interpretation` says the sample is incomplete. H2 pairs at most six traders, so one skip is a real loss of power.
 - Rate limiting is in-process memory, so it resets on restart and is per-worker — a brake on casual abuse, not a distributed defence. Nothing alerts on the request log.
 - The disclosure feed is served from a 15-minute cache refreshed in the background, so a cold start returns `warming: true` and an empty list rather than holding the request open. The cold path is two chained background stages — crawl SEC EDGAR, then price every filing — and the warming response carries `retry_after_seconds` so the client polls at 15 seconds instead of its steady-state 5 minutes. Measured end to end on a real cold process: the browser rendered 24 filings 49 seconds after first load, with no user action. It is *seconds to a minute*, not instant, and can be several minutes when EDGAR is slow.

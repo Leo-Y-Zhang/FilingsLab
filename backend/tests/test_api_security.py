@@ -117,6 +117,29 @@ def test_per_ticker_feed_rejects_junk_symbols(client):
     assert r.status_code == 422
 
 
+@pytest.mark.parametrize(
+    "method,path",
+    [
+        ("get", "/api/feed/disclosures/AAPL%0A"),
+        ("delete", "/api/feed/position/AAPL%0A"),
+    ],
+)
+def test_ticker_allow_list_rejects_a_trailing_newline(client, monkeypatch, method, path):
+    """
+    ``re.match`` with a ``$``-anchored pattern accepts "AAPL\n": ``$`` also
+    matches just before a final newline. Before the fix the feed answered 200
+    with ``"ticker": "AAPL\n"``, a second cache key and EDGAR crawl for AAPL,
+    and a newline carried into every place the allow-list was trusted to have
+    kept one out of.
+    """
+    monkeypatch.setattr(edgar, "fetch_for_ticker", lambda sym, on_refresh=None: [])
+    monkeypatch.setattr(edgar, "is_warming", lambda **kw: False)
+    monkeypatch.setattr(pb, "close_position", lambda db, ticker: None)
+
+    r = getattr(client, method)(path, headers=AUTH)
+    assert r.status_code == 422, f"{method.upper()} {path} answered {r.status_code}: {r.text}"
+
+
 # ── 2. Numeric bounds ─────────────────────────────────────────────────────────
 
 def test_negative_notional_is_rejected(client):
