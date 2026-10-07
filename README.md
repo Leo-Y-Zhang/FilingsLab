@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Leo-Y-Zhang/FilingsLab/actions/workflows/ci.yml/badge.svg)](https://github.com/Leo-Y-Zhang/FilingsLab/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
-Proprietary - All Rights Reserved (c) 2026 Leo-Y-Zhang - portfolio viewing only. [LICENSE](LICENSE)
+Proprietary, source-available: read it, run it, check it. See [LICENSE](LICENSE).
 
 Public trading disclosures by US politicians (STOCK Act) and corporate insiders (SEC Form 4) arrive *late* — a filing is published days or weeks after the trade. FilingsLab takes that constraint seriously: it only executes simulated trades at `disclosure_date + delay_days`, never at the original (non-public) trade date, so the backtest cannot see information a real follower couldn't have had. Around that point-in-time-safe core it measures how fast the disclosure edge decays with delay, runs Monte Carlo ensembles, tests two stated hypotheses, and can drive an Alpaca **paper-trading** bot off the live SEC feed.
 
