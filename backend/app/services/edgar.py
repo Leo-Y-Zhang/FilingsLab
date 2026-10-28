@@ -156,7 +156,7 @@ def _run_refresh(
         return data
     except Exception:
         # The stale entry, if any, is left in place: last-known-good beats empty.
-        logger.exception("EDGAR refresh failed for %s", key)
+        logger.exception("EDGAR refresh failed for %s", scrub(key))
         return _stale(key) or []
     finally:
         _release_refresh(key)
@@ -167,7 +167,7 @@ def _run_refresh(
             try:
                 on_refresh(_cached(key) or _stale(key) or [])
             except Exception:
-                logger.exception("EDGAR refresh callback failed for %s", key)
+                logger.exception("EDGAR refresh callback failed for %s", scrub(key))
 
 
 def _schedule_refresh(
@@ -222,7 +222,7 @@ def _search(days_back: int, limit: int) -> list[dict]:
         r.raise_for_status()
         return r.json().get("hits", {}).get("hits", [])[:limit]
     except Exception as exc:
-        logger.warning("EDGAR search failed: %s", exc)
+        logger.warning("EDGAR search failed: %s", scrub(exc))
         return []
 
 
@@ -418,7 +418,7 @@ def _crawl_recent(limit: int) -> list[dict]:
             try:
                 results.extend(fut.result())
             except Exception as exc:
-                logger.debug("Hit processing error: %s", exc)
+                logger.debug("Hit processing error: %s", scrub(exc))
 
     # Sort, deduplicate, limit
     results.sort(key=lambda x: x.get("disclosure_date", ""), reverse=True)
