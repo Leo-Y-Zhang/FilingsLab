@@ -47,6 +47,27 @@ _BACKEND = Path(__file__).resolve().parents[1]
 # ── A. the helper neutralises what forges a record ────────────────────────────
 
 @pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("before\rafter", "before\\rafter"),
+        ("before\nafter", "before\\nafter"),
+        ("before\r\nafter", "before\\r\\nafter"),
+    ],
+)
+def test_scrub_escapes_record_delimiters(value, expected):
+    assert scrub(value) == expected
+
+
+@pytest.mark.parametrize("codepoint", [*range(0x20), *range(0x7f, 0xa0)])
+def test_scrub_escapes_every_c0_and_c1_control(codepoint):
+    control = chr(codepoint)
+    cleaned = scrub(f"before{control}after")
+    assert control not in cleaned
+    assert cleaned.isprintable()
+    assert cleaned.startswith("before\\") and cleaned.endswith("after")
+
+
+@pytest.mark.parametrize(
     "hostile",
     [
         "AAPL\nWARNING:app:forged record",          # LF: the classic
@@ -71,19 +92,32 @@ def test_scrub_escapes_terminal_control_sequences():
 
 def test_scrub_leaves_legitimate_values_untouched():
     """A defence that mangles the normal case gets removed by the next reader."""
-    for good in ("AAPL", "BRK.A", "BF-B", "politician", "ticker:AAPL", "recent:50"):
+    for good in (
+        "", "AAPL", "BRK.A", "BF-B", "politician", "ticker:AAPL", "recent:50", "café 東京",
+    ):
         assert scrub(good) == good
 
 
 def test_scrub_renders_non_strings():
     assert scrub(ValueError("boom\nforged")) == "boom\\nforged"
     assert scrub(42) == "42"
+    assert scrub(None) == "None"
 
 
 def test_scrub_caps_the_length_of_one_field():
     cleaned = scrub("A" * 5_000)
     assert len(cleaned) < 250, f"one field wrote {len(cleaned)} characters to the log"
     assert cleaned.endswith("...[truncated]")
+
+
+def test_scrub_only_truncates_above_the_limit():
+    assert scrub("A" * 200) == "A" * 200
+    assert scrub("A" * 201) == "A" * 200 + "...[truncated]"
+    assert scrub("A" * 6, 5) == "AAAAA...[truncated]"
+
+
+def test_scrub_applies_the_limit_after_escaping():
+    assert scrub("\n" * 101) == "\\n" * 100 + "...[truncated]"
 
 
 # ── B. the wiring: every sink still scrubs ────────────────────────────────────
@@ -104,6 +138,10 @@ _REQUEST_FIELDS = {
 # at both of the sinks it reaches.
 _CONTRACT = [
     ("app/services/edgar.py",        "EDGAR refresh for %s skipped", {"scrub(key)"}),
+    ("app/services/edgar.py",        "EDGAR refresh failed for %s",  {"scrub(key)"}),
+    ("app/services/edgar.py",        "EDGAR refresh callback failed for %s", {"scrub(key)"}),
+    ("app/services/edgar.py",        "EDGAR search failed: %s",      {"scrub(exc)"}),
+    ("app/services/edgar.py",        "Hit processing error: %s",     {"scrub(exc)"}),
     ("app/kronos/service.py",        "yfinance error for %s",        {"scrub(symbol)", "scrub(exc)"}),
     ("app/services/paper_broker.py", "Paper %s: %s",                 {"scrub(side.upper())", "scrub(ticker)"}),
     ("app/api/research.py",          "H1 hypothesis test failed",    {"scrub(category)"}),

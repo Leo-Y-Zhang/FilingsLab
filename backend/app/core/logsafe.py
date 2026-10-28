@@ -45,7 +45,9 @@ def scrub(value: object, limit: int = _MAX_LOGGED_CHARS) -> str:
     which some log reader treats as a line break. Over-long values are
     truncated so a single field cannot fill the log.
     """
-    text = value if isinstance(value, str) else str(value)
+    # Make the record delimiters explicit so static analysis can recognise
+    # their removal as well as the escaping of other controls below.
+    text = str(value).replace("\r", "\\r").replace("\n", "\\n")
     cleaned = "".join(
         ch if ch.isprintable() else ch.encode("unicode_escape").decode("ascii")
         for ch in text
