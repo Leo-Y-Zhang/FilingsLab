@@ -1,0 +1,542 @@
+[
+  {
+    "id": "V01",
+    "module": "ingestion.validator",
+    "old": "if not trade_date:",
+    "new": "if False:",
+    "killed": true,
+    "summary": "1 failed, 161 passed, 8 warnings in 11.20s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_trade_rejects_one_corrupted_field[trade_date-None-missing trade_date]"
+  },
+  {
+    "id": "V02",
+    "module": "ingestion.validator",
+    "old": "trade_date < MIN_DATE",
+    "new": "trade_date <= MIN_DATE",
+    "killed": true,
+    "summary": "1 failed, 155 passed, 8 warnings in 11.22s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_valid_trade_including_exact_boundaries[changes1]"
+  },
+  {
+    "id": "V03",
+    "module": "ingestion.validator",
+    "old": "trade_date < MIN_DATE",
+    "new": "False",
+    "killed": true,
+    "summary": "1 failed, 162 passed, 8 warnings in 11.31s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_trade_rejects_one_corrupted_field[trade_date-value1-predates MIN_DATE]"
+  },
+  {
+    "id": "V04",
+    "module": "ingestion.validator",
+    "old": "trade_date > date.today()",
+    "new": "trade_date >= date.today()",
+    "killed": true,
+    "summary": "1 failed, 156 passed, 8 warnings in 12.04s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_valid_trade_including_exact_boundaries[changes2]"
+  },
+  {
+    "id": "V05",
+    "module": "ingestion.validator",
+    "old": "trade_date > date.today()",
+    "new": "False",
+    "killed": true,
+    "summary": "1 failed, 163 passed, 8 warnings in 12.03s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_trade_rejects_one_corrupted_field[trade_date-value2-in the future]"
+  },
+  {
+    "id": "V06",
+    "module": "ingestion.validator",
+    "old": "disclosure_date < trade_date",
+    "new": "disclosure_date <= trade_date",
+    "killed": true,
+    "summary": "1 failed, 155 passed, 8 warnings in 12.02s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_valid_trade_including_exact_boundaries[changes1]"
+  },
+  {
+    "id": "V07",
+    "module": "ingestion.validator",
+    "old": "disclosure_date and disclosure_date < trade_date",
+    "new": "False",
+    "killed": true,
+    "summary": "1 failed, 164 passed, 8 warnings in 10.62s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_trade_rejects_one_corrupted_field[disclosure_date-value3-precedes trade_date]"
+  },
+  {
+    "id": "V08",
+    "module": "ingestion.validator",
+    "old": "delay > MAX_DISCLOSURE_DELAY_DAYS",
+    "new": "delay >= MAX_DISCLOSURE_DELAY_DAYS",
+    "killed": true,
+    "summary": "1 failed, 157 passed, 8 warnings in 10.64s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_valid_trade_including_exact_boundaries[changes3]"
+  },
+  {
+    "id": "V09",
+    "module": "ingestion.validator",
+    "old": "delay > MAX_DISCLOSURE_DELAY_DAYS",
+    "new": "False",
+    "killed": true,
+    "summary": "1 failed, 165 passed, 8 warnings in 10.58s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_trade_rejects_one_corrupted_field[disclosure_date-value4-exceeds maximum]"
+  },
+  {
+    "id": "V10",
+    "module": "ingestion.validator",
+    "old": "val < MIN_VALUE",
+    "new": "val <= MIN_VALUE",
+    "killed": true,
+    "summary": "1 failed, 158 passed, 8 warnings in 10.59s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_valid_trade_including_exact_boundaries[changes4]"
+  },
+  {
+    "id": "V11",
+    "module": "ingestion.validator",
+    "old": "val > MAX_VALUE",
+    "new": "val >= MAX_VALUE",
+    "killed": true,
+    "summary": "1 failed, 159 passed, 8 warnings in 10.63s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_valid_trade_including_exact_boundaries[changes5]"
+  },
+  {
+    "id": "V12",
+    "module": "ingestion.validator",
+    "old": "val < MIN_VALUE",
+    "new": "False",
+    "killed": true,
+    "summary": "1 failed, 166 passed, 8 warnings in 10.59s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_trade_rejects_one_corrupted_field[value_estimate-value5-below minimum]"
+  },
+  {
+    "id": "V13",
+    "module": "ingestion.validator",
+    "old": "val > MAX_VALUE",
+    "new": "False",
+    "killed": true,
+    "summary": "1 failed, 150 passed, 8 warnings in 10.53s",
+    "failure": "FAILED tests/test_ingestion_pipeline.py::test_trades_count_rejections_and_do_not_persist_invalid_records"
+  },
+  {
+    "id": "V14",
+    "module": "ingestion.validator",
+    "old": "not symbol or len(symbol) < 1",
+    "new": "False",
+    "killed": true,
+    "summary": "1 failed, 168 passed, 8 warnings in 10.54s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_trade_rejects_one_corrupted_field[asset_symbol--invalid asset_symbol]"
+  },
+  {
+    "id": "V15",
+    "module": "ingestion.validator",
+    "old": "if not symbol:\n        return False, \"missing asset_symbol\"",
+    "new": "if False:\n        return False, \"missing asset_symbol\"",
+    "killed": true,
+    "summary": "1 failed, 152 passed, 8 warnings in 10.55s",
+    "failure": "FAILED tests/test_ingestion_pipeline.py::test_prices_insert_update_and_count_only_valid_rows"
+  },
+  {
+    "id": "V16",
+    "module": "ingestion.validator",
+    "old": "if not price_date:",
+    "new": "if False:",
+    "killed": true,
+    "summary": "1 failed, 176 passed, 8 warnings in 10.80s",
+    "failure": "FAILED tests/test_ingestion_validation.py::test_price_rejects_one_corrupted_field[changes1-missing date]"
+  },
+  {
+    "id": "V17",
+    "module": "ingestion.validator",
+    "old": "float(closing) <= 0",
+    "new": "float(closing) < 0",
+    "killed": true,
+    "summary": "1 failed, 152 passed, 8 warnings in 10.81s",
+    "failure": "FAILED tests/test_ingestion_pipeline.py::test_prices_insert_update_and_count_only_valid_rows"
+  },
+  {
+    "id": "V18",
+    "module": "ingestion.validator",
+    "old": "closing is None or float(closing) <= 0",
+    "new": "closing is None",
+    "killed": true,
+    "summary": "1 failed, 152 passed, 8 warnings in 10.58s",
+    "failure": "FAILED tests/test_ingestion_pipeline.py::test_prices_insert_update_and_count_only_valid_rows"
+  },
+  {
+    "id": "N01",
+    "module": "ingestion.normalizer",
+    "old": "(lo + hi) / 2\n\n    m = _RANGE_RE",
+    "new": "(lo - hi) / 2\n\n    m = _RANGE_RE",
+    "killed": true,
+    "summary": "1 failed, 104 passed, 8 warnings in 10.56s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_value_range_bounds_and_midpoint[ $1,001 - $15,000 -expected0]"
+  },
+  {
+    "id": "N02",
+    "module": "ingestion.normalizer",
+    "old": "lo, hi = hi, lo",
+    "new": "lo, hi = lo, hi",
+    "killed": true,
+    "summary": "1 failed, 106 passed, 8 warnings in 10.52s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_value_range_bounds_and_midpoint[$20,000 \\u2013 $10,000-expected2]"
+  },
+  {
+    "id": "N03",
+    "module": "ingestion.normalizer",
+    "old": "hi = lo * 3",
+    "new": "hi = lo * 2",
+    "killed": true,
+    "summary": "1 failed, 108 passed, 8 warnings in 10.52s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_value_range_bounds_and_midpoint[over $20,000-expected4]"
+  },
+  {
+    "id": "N04",
+    "module": "ingestion.normalizer",
+    "old": "return datetime.strptime(value.strip(), fmt).date()",
+    "new": "return None",
+    "killed": true,
+    "summary": "1 failed, 113 passed, 8 warnings in 10.48s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_date_formats_keep_the_calendar_day[ 2024-02-29 ]"
+  },
+  {
+    "id": "N05",
+    "module": "ingestion.normalizer",
+    "old": "if raw_clean in sell_synonyms:",
+    "new": "if False:",
+    "killed": true,
+    "summary": "1 failed, 127 passed, 8 warnings in 10.49s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_transaction_direction[ Full Sale -sell]"
+  },
+  {
+    "id": "N06",
+    "module": "ingestion.normalizer",
+    "old": "1 <= len(clean) <= 10",
+    "new": "1 <= len(clean) < 10",
+    "killed": true,
+    "summary": "1 failed, 133 passed, 8 warnings in 10.48s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_symbol_normalization_and_length[abcdefghij-ABCDEFGHIJ]"
+  },
+  {
+    "id": "N07",
+    "module": "ingestion.normalizer",
+    "old": "if not raw.get(key) and raw.get(key) != 0:",
+    "new": "if False:",
+    "killed": true,
+    "summary": "1 failed, 141 passed, 8 warnings in 10.51s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_removed_required_fields_are_rejected[trader_id]"
+  },
+  {
+    "id": "N08",
+    "module": "ingestion.normalizer",
+    "old": "if not trade_date:",
+    "new": "if False:",
+    "killed": true,
+    "summary": "1 failed, 145 passed, 8 warnings in 10.45s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_corrupted_record_is_rejected[changes0]"
+  },
+  {
+    "id": "N09",
+    "module": "ingestion.normalizer",
+    "old": "disclosure_date = trade_date\n\n    txn",
+    "new": "disclosure_date = disclosure_date\n\n    txn",
+    "killed": true,
+    "summary": "1 failed, 140 passed, 8 warnings in 10.42s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_missing_or_earlier_disclosure_uses_trade_date[2024-02-28]"
+  },
+  {
+    "id": "N10",
+    "module": "ingestion.normalizer",
+    "old": "if not txn:",
+    "new": "if False:",
+    "killed": true,
+    "summary": "1 failed, 146 passed, 8 warnings in 10.67s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_corrupted_record_is_rejected[changes1]"
+  },
+  {
+    "id": "N11",
+    "module": "ingestion.normalizer",
+    "old": "if not symbol:",
+    "new": "if False:",
+    "killed": true,
+    "summary": "1 failed, 147 passed, 8 warnings in 10.67s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_corrupted_record_is_rejected[changes2]"
+  },
+  {
+    "id": "N12",
+    "module": "ingestion.normalizer",
+    "old": "Decimal(str(mid))",
+    "new": "Decimal(str(lo))",
+    "killed": true,
+    "summary": "1 failed, 137 passed, 8 warnings in 10.67s",
+    "failure": "FAILED tests/test_ingestion_normalizer.py::test_complete_record_has_typed_values_and_exact_midpoint"
+  },
+  {
+    "id": "E01",
+    "module": "services.edgar",
+    "old": "if not ticker:\n        return []",
+    "new": "if False:\n        return []",
+    "killed": true,
+    "summary": "1 failed, 75 passed, 8 warnings in 10.50s",
+    "failure": "FAILED tests/test_edgar_parser.py::test_truncated_or_missing_identity_document_is_rejected[<ownershipDocument>\\n      <issuer><issuerTradingSymbol></issuerTradingSymbol><issuerName>Example</issuerName></issuer>\\n      <reportingOwner><reportingOwnerId><rptOwnerName>Example Owner</rptOwnerName>\\n        <rptOwnerCik> 123 </rptOwnerCik></reportingOwnerId>\\n        <reportingOwnerRelationship><isOfficer>1</isOfficer>\\n          <isDirector>1</isDirector><isTenPercentOwner>0</isTenPercentOwner>\\n          <officerTitle>CEO</officerTitle></reportingOwnerRelationship>\\n      </reportingOwner><nonDerivativeTable><nonDerivativeTransaction>\\n      <transactionCoding><transactionCode>P</transactionCode></transactionCoding>\\n      <transactionDate><value>2024-03-01</value></transactionDate>\\n      <transactionAmounts>\\n        <transactionShares><value>100</value></transactionShares>\\n        <transactionPricePerShare><value>100</value></transactionPricePerShare>\\n      </transactionAmounts>\\n    </nonDerivativeTransaction></nonDerivativeTable>\\n    </ownershipDocument>]"
+  },
+  {
+    "id": "E02",
+    "module": "services.edgar",
+    "old": "if code not in (\"P\", \"S\"):",
+    "new": "if False:",
+    "killed": true,
+    "summary": "1 failed, 64 passed, 8 warnings in 10.45s",
+    "failure": "FAILED tests/test_edgar_parser.py::test_one_corrupted_transaction_is_rejected_without_losing_valid_neighbor[changes0]"
+  },
+  {
+    "id": "E03",
+    "module": "services.edgar",
+    "old": "if price <= 0 or shares <= 0:",
+    "new": "if False:",
+    "killed": true,
+    "summary": "1 failed, 69 passed, 8 warnings in 10.49s",
+    "failure": "FAILED tests/test_edgar_parser.py::test_one_corrupted_transaction_is_rejected_without_losing_valid_neighbor[changes5]"
+  },
+  {
+    "id": "E04",
+    "module": "services.edgar",
+    "old": "amount < 10_000",
+    "new": "amount <= 10_000",
+    "killed": true,
+    "summary": "1 failed, 63 passed, 8 warnings in 10.33s",
+    "failure": "FAILED tests/test_edgar_parser.py::test_purchase_at_exact_threshold_and_sale_keep_values_and_direction"
+  },
+  {
+    "id": "E05",
+    "module": "services.edgar",
+    "old": "amount < 10_000",
+    "new": "False",
+    "killed": true,
+    "summary": "1 failed, 66 passed, 8 warnings in 10.33s",
+    "failure": "FAILED tests/test_edgar_parser.py::test_one_corrupted_transaction_is_rejected_without_losing_valid_neighbor[changes2]"
+  },
+  {
+    "id": "E06",
+    "module": "services.edgar",
+    "old": "\"buy\" if code == \"P\" else \"sell\"",
+    "new": "\"buy\" if code != \"P\" else \"sell\"",
+    "killed": true,
+    "summary": "1 failed, 63 passed, 8 warnings in 10.31s",
+    "failure": "FAILED tests/test_edgar_parser.py::test_purchase_at_exact_threshold_and_sale_keep_values_and_direction"
+  },
+  {
+    "id": "E07",
+    "module": "services.edgar",
+    "old": "round(shares * price, 2)",
+    "new": "round(shares + price, 2)",
+    "killed": true,
+    "summary": "1 failed, 63 passed, 8 warnings in 10.44s",
+    "failure": "FAILED tests/test_edgar_parser.py::test_purchase_at_exact_threshold_and_sale_keep_values_and_direction"
+  },
+  {
+    "id": "E08",
+    "module": "services.edgar",
+    "old": "if is_off:\n        role",
+    "new": "if not is_off:\n        role",
+    "killed": true,
+    "summary": "1 failed, 63 passed, 8 warnings in 10.46s",
+    "failure": "FAILED tests/test_edgar_parser.py::test_purchase_at_exact_threshold_and_sale_keep_values_and_direction"
+  },
+  {
+    "id": "P01",
+    "module": "simulation.portfolio",
+    "old": "execution_price <= 0 or allocation <= 0",
+    "new": "execution_price <= 0 and allocation <= 0",
+    "killed": true,
+    "summary": "1 failed, 318 passed, 8 warnings in 10.82s",
+    "failure": "FAILED tests/test_portfolio_accounting.py::test_invalid_buy_does_not_change_state[100-0]"
+  },
+  {
+    "id": "P02",
+    "module": "simulation.portfolio",
+    "old": "min(allocation, self.cash)",
+    "new": "allocation",
+    "killed": true,
+    "summary": "1 failed, 315 passed, 8 warnings in 10.74s",
+    "failure": "FAILED tests/test_portfolio_accounting.py::test_buy_caps_spend_to_cash_and_charges_fee_once"
+  },
+  {
+    "id": "P03",
+    "module": "simulation.portfolio",
+    "old": "affordable * (1 - transaction_cost)",
+    "new": "affordable * (1 + transaction_cost)",
+    "killed": true,
+    "summary": "1 failed, 315 passed, 8 warnings in 10.69s",
+    "failure": "FAILED tests/test_portfolio_accounting.py::test_buy_caps_spend_to_cash_and_charges_fee_once"
+  },
+  {
+    "id": "P04",
+    "module": "simulation.portfolio",
+    "old": "self.cash -= affordable",
+    "new": "self.cash += affordable",
+    "killed": true,
+    "summary": "1 failed, 315 passed, 8 warnings in 10.69s",
+    "failure": "FAILED tests/test_portfolio_accounting.py::test_buy_caps_spend_to_cash_and_charges_fee_once"
+  },
+  {
+    "id": "P05",
+    "module": "simulation.portfolio",
+    "old": "total_cost / total_shares",
+    "new": "execution_price",
+    "killed": true,
+    "summary": "1 failed, 316 passed, 8 warnings in 10.97s",
+    "failure": "FAILED tests/test_portfolio_accounting.py::test_repeated_buys_use_share_weighted_cost_and_missing_quote_uses_cost"
+  },
+  {
+    "id": "P06",
+    "module": "simulation.portfolio",
+    "old": "min(target_value, max_sell_value)",
+    "new": "target_value",
+    "killed": true,
+    "summary": "1 failed, 317 passed, 8 warnings in 10.97s",
+    "failure": "FAILED tests/test_portfolio_accounting.py::test_partial_sell_then_oversized_sell_conserves_shares_and_cash"
+  },
+  {
+    "id": "P07",
+    "module": "simulation.portfolio",
+    "old": "execution_price * (1 - transaction_cost)",
+    "new": "execution_price * (1 + transaction_cost)",
+    "killed": true,
+    "summary": "1 failed, 317 passed, 8 warnings in 10.82s",
+    "failure": "FAILED tests/test_portfolio_accounting.py::test_partial_sell_then_oversized_sell_conserves_shares_and_cash"
+  },
+  {
+    "id": "P08",
+    "module": "simulation.portfolio",
+    "old": "remaining = pos.shares - shares_to_sell",
+    "new": "remaining = pos.shares + shares_to_sell",
+    "killed": true,
+    "summary": "1 failed, 317 passed, 8 warnings in 11.07s",
+    "failure": "FAILED tests/test_portfolio_accounting.py::test_partial_sell_then_oversized_sell_conserves_shares_and_cash"
+  },
+  {
+    "id": "P09",
+    "module": "simulation.portfolio",
+    "old": "current_prices.get(sym, pos.avg_cost)",
+    "new": "current_prices.get(sym, 0.0)",
+    "killed": true,
+    "summary": "1 failed, 316 passed, 8 warnings in 11.09s",
+    "failure": "FAILED tests/test_portfolio_accounting.py::test_repeated_buys_use_share_weighted_cost_and_missing_quote_uses_cost"
+  },
+  {
+    "id": "I01",
+    "module": "ingestion.pipeline",
+    "old": "if normalised is None:",
+    "new": "if normalised is not None:",
+    "killed": true,
+    "summary": "1 failed, 150 passed, 8 warnings in 10.59s",
+    "failure": "FAILED tests/test_ingestion_pipeline.py::test_trades_count_rejections_and_do_not_persist_invalid_records"
+  },
+  {
+    "id": "I02",
+    "module": "ingestion.pipeline",
+    "old": "if not ok:\n                errors += 1\n                continue\n\n            exists",
+    "new": "if False:\n                errors += 1\n                continue\n\n            exists",
+    "killed": true,
+    "summary": "1 failed, 150 passed, 8 warnings in 10.83s",
+    "failure": "FAILED tests/test_ingestion_pipeline.py::test_trades_count_rejections_and_do_not_persist_invalid_records"
+  },
+  {
+    "id": "I03",
+    "module": "ingestion.pipeline",
+    "old": "if exists:",
+    "new": "if False:",
+    "killed": true,
+    "summary": "1 failed, 151 passed, 8 warnings in 10.88s",
+    "failure": "FAILED tests/test_ingestion_pipeline.py::test_trade_duplicate_key_includes_symbol_date_direction_and_trader"
+  },
+  {
+    "id": "I04",
+    "module": "ingestion.pipeline",
+    "old": "skipped += 1",
+    "new": "skipped += 0",
+    "killed": true,
+    "summary": "1 failed, 151 passed, 8 warnings in 10.83s",
+    "failure": "FAILED tests/test_ingestion_pipeline.py::test_trade_duplicate_key_includes_symbol_date_direction_and_trader"
+  },
+  {
+    "id": "I05",
+    "module": "ingestion.pipeline",
+    "old": "if not ok:\n                errors += 1\n                continue\n\n            symbol",
+    "new": "if False:\n                errors += 1\n                continue\n\n            symbol",
+    "killed": true,
+    "summary": "1 failed, 152 passed, 8 warnings in 10.79s",
+    "failure": "FAILED tests/test_ingestion_pipeline.py::test_prices_insert_update_and_count_only_valid_rows"
+  },
+  {
+    "id": "I06",
+    "module": "ingestion.pipeline",
+    "old": "existing.closing_price = Decimal(str(raw[\"closing_price\"]))",
+    "new": "existing.closing_price = existing.closing_price",
+    "killed": true,
+    "summary": "1 failed, 152 passed, 8 warnings in 10.84s",
+    "failure": "FAILED tests/test_ingestion_pipeline.py::test_prices_insert_update_and_count_only_valid_rows"
+  },
+  {
+    "id": "I07",
+    "module": "ingestion.pipeline",
+    "old": "updated += 1",
+    "new": "updated += 0",
+    "killed": true,
+    "summary": "1 failed, 152 passed, 8 warnings in 10.84s",
+    "failure": "FAILED tests/test_ingestion_pipeline.py::test_prices_insert_update_and_count_only_valid_rows"
+  },
+  {
+    "id": "R01",
+    "module": "analytics.ranking",
+    "old": "(v - lo) / spread",
+    "new": "(v + lo) / spread",
+    "killed": true,
+    "summary": "1 failed, 329 passed, 8 warnings in 10.88s",
+    "failure": "FAILED tests/test_ranking_contract.py::test_population_normalization[values3-expected3]"
+  },
+  {
+    "id": "R02",
+    "module": "analytics.ranking",
+    "old": "[0.5] * len(values)",
+    "new": "[0.0] * len(values)",
+    "killed": true,
+    "summary": "1 failed, 327 passed, 8 warnings in 10.69s",
+    "failure": "FAILED tests/test_ranking_contract.py::test_population_normalization[values1-expected1]"
+  },
+  {
+    "id": "R03",
+    "module": "analytics.ranking",
+    "old": "abs(_f(p.max_drawdown if p else None))",
+    "new": "_f(p.max_drawdown if p else None)",
+    "killed": true,
+    "summary": "1 failed, 331 passed, 8 warnings in 10.78s",
+    "failure": "FAILED tests/test_ranking_contract.py::test_score_weights_sorting_excess_return_and_persisted_score"
+  },
+  {
+    "id": "R04",
+    "module": "analytics.ranking",
+    "old": "- w.rank_w_drawdown",
+    "new": "+ w.rank_w_drawdown",
+    "killed": true,
+    "summary": "1 failed, 331 passed, 8 warnings in 10.76s",
+    "failure": "FAILED tests/test_ranking_contract.py::test_score_weights_sorting_excess_return_and_persisted_score"
+  },
+  {
+    "id": "R05",
+    "module": "analytics.ranking",
+    "old": "reverse=True",
+    "new": "reverse=False",
+    "killed": true,
+    "summary": "1 failed, 331 passed, 8 warnings in 10.66s",
+    "failure": "FAILED tests/test_ranking_contract.py::test_score_weights_sorting_excess_return_and_persisted_score"
+  },
+  {
+    "id": "R06",
+    "module": "analytics.ranking",
+    "old": "r.rank = i + 1",
+    "new": "r.rank = i",
+    "killed": true,
+    "summary": "1 failed, 331 passed, 8 warnings in 10.67s",
+    "failure": "FAILED tests/test_ranking_contract.py::test_score_weights_sorting_excess_return_and_persisted_score"
+  }
+]

@@ -1,0 +1,542 @@
+[
+  {
+    "id": "V01",
+    "module": "ingestion.validator",
+    "old": "if not trade_date:",
+    "new": "if False:",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.10s",
+    "failure": null
+  },
+  {
+    "id": "V02",
+    "module": "ingestion.validator",
+    "old": "trade_date < MIN_DATE",
+    "new": "trade_date <= MIN_DATE",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.10s",
+    "failure": null
+  },
+  {
+    "id": "V03",
+    "module": "ingestion.validator",
+    "old": "trade_date < MIN_DATE",
+    "new": "False",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.10s",
+    "failure": null
+  },
+  {
+    "id": "V04",
+    "module": "ingestion.validator",
+    "old": "trade_date > date.today()",
+    "new": "trade_date >= date.today()",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.62s",
+    "failure": null
+  },
+  {
+    "id": "V05",
+    "module": "ingestion.validator",
+    "old": "trade_date > date.today()",
+    "new": "False",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.66s",
+    "failure": null
+  },
+  {
+    "id": "V06",
+    "module": "ingestion.validator",
+    "old": "disclosure_date < trade_date",
+    "new": "disclosure_date <= trade_date",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.64s",
+    "failure": null
+  },
+  {
+    "id": "V07",
+    "module": "ingestion.validator",
+    "old": "disclosure_date and disclosure_date < trade_date",
+    "new": "False",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.30s",
+    "failure": null
+  },
+  {
+    "id": "V08",
+    "module": "ingestion.validator",
+    "old": "delay > MAX_DISCLOSURE_DELAY_DAYS",
+    "new": "delay >= MAX_DISCLOSURE_DELAY_DAYS",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.26s",
+    "failure": null
+  },
+  {
+    "id": "V09",
+    "module": "ingestion.validator",
+    "old": "delay > MAX_DISCLOSURE_DELAY_DAYS",
+    "new": "False",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.27s",
+    "failure": null
+  },
+  {
+    "id": "V10",
+    "module": "ingestion.validator",
+    "old": "val < MIN_VALUE",
+    "new": "val <= MIN_VALUE",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.19s",
+    "failure": null
+  },
+  {
+    "id": "V11",
+    "module": "ingestion.validator",
+    "old": "val > MAX_VALUE",
+    "new": "val >= MAX_VALUE",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.14s",
+    "failure": null
+  },
+  {
+    "id": "V12",
+    "module": "ingestion.validator",
+    "old": "val < MIN_VALUE",
+    "new": "False",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.13s",
+    "failure": null
+  },
+  {
+    "id": "V13",
+    "module": "ingestion.validator",
+    "old": "val > MAX_VALUE",
+    "new": "False",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.39s",
+    "failure": null
+  },
+  {
+    "id": "V14",
+    "module": "ingestion.validator",
+    "old": "not symbol or len(symbol) < 1",
+    "new": "False",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.37s",
+    "failure": null
+  },
+  {
+    "id": "V15",
+    "module": "ingestion.validator",
+    "old": "if not symbol:\n        return False, \"missing asset_symbol\"",
+    "new": "if False:\n        return False, \"missing asset_symbol\"",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.41s",
+    "failure": null
+  },
+  {
+    "id": "V16",
+    "module": "ingestion.validator",
+    "old": "if not price_date:",
+    "new": "if False:",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.35s",
+    "failure": null
+  },
+  {
+    "id": "V17",
+    "module": "ingestion.validator",
+    "old": "float(closing) <= 0",
+    "new": "float(closing) < 0",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.46s",
+    "failure": null
+  },
+  {
+    "id": "V18",
+    "module": "ingestion.validator",
+    "old": "closing is None or float(closing) <= 0",
+    "new": "closing is None",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.33s",
+    "failure": null
+  },
+  {
+    "id": "N01",
+    "module": "ingestion.normalizer",
+    "old": "(lo + hi) / 2\n\n    m = _RANGE_RE",
+    "new": "(lo - hi) / 2\n\n    m = _RANGE_RE",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.44s",
+    "failure": null
+  },
+  {
+    "id": "N02",
+    "module": "ingestion.normalizer",
+    "old": "lo, hi = hi, lo",
+    "new": "lo, hi = lo, hi",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.42s",
+    "failure": null
+  },
+  {
+    "id": "N03",
+    "module": "ingestion.normalizer",
+    "old": "hi = lo * 3",
+    "new": "hi = lo * 2",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.32s",
+    "failure": null
+  },
+  {
+    "id": "N04",
+    "module": "ingestion.normalizer",
+    "old": "return datetime.strptime(value.strip(), fmt).date()",
+    "new": "return None",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.39s",
+    "failure": null
+  },
+  {
+    "id": "N05",
+    "module": "ingestion.normalizer",
+    "old": "if raw_clean in sell_synonyms:",
+    "new": "if False:",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.42s",
+    "failure": null
+  },
+  {
+    "id": "N06",
+    "module": "ingestion.normalizer",
+    "old": "1 <= len(clean) <= 10",
+    "new": "1 <= len(clean) < 10",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.37s",
+    "failure": null
+  },
+  {
+    "id": "N07",
+    "module": "ingestion.normalizer",
+    "old": "if not raw.get(key) and raw.get(key) != 0:",
+    "new": "if False:",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.41s",
+    "failure": null
+  },
+  {
+    "id": "N08",
+    "module": "ingestion.normalizer",
+    "old": "if not trade_date:",
+    "new": "if False:",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.40s",
+    "failure": null
+  },
+  {
+    "id": "N09",
+    "module": "ingestion.normalizer",
+    "old": "disclosure_date = trade_date\n\n    txn",
+    "new": "disclosure_date = disclosure_date\n\n    txn",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.40s",
+    "failure": null
+  },
+  {
+    "id": "N10",
+    "module": "ingestion.normalizer",
+    "old": "if not txn:",
+    "new": "if False:",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.32s",
+    "failure": null
+  },
+  {
+    "id": "N11",
+    "module": "ingestion.normalizer",
+    "old": "if not symbol:",
+    "new": "if False:",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.30s",
+    "failure": null
+  },
+  {
+    "id": "N12",
+    "module": "ingestion.normalizer",
+    "old": "Decimal(str(mid))",
+    "new": "Decimal(str(lo))",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.30s",
+    "failure": null
+  },
+  {
+    "id": "E01",
+    "module": "services.edgar",
+    "old": "if not ticker:\n        return []",
+    "new": "if False:\n        return []",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.37s",
+    "failure": null
+  },
+  {
+    "id": "E02",
+    "module": "services.edgar",
+    "old": "if code not in (\"P\", \"S\"):",
+    "new": "if False:",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.35s",
+    "failure": null
+  },
+  {
+    "id": "E03",
+    "module": "services.edgar",
+    "old": "if price <= 0 or shares <= 0:",
+    "new": "if False:",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.35s",
+    "failure": null
+  },
+  {
+    "id": "E04",
+    "module": "services.edgar",
+    "old": "amount < 10_000",
+    "new": "amount <= 10_000",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.09s",
+    "failure": null
+  },
+  {
+    "id": "E05",
+    "module": "services.edgar",
+    "old": "amount < 10_000",
+    "new": "False",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.13s",
+    "failure": null
+  },
+  {
+    "id": "E06",
+    "module": "services.edgar",
+    "old": "\"buy\" if code == \"P\" else \"sell\"",
+    "new": "\"buy\" if code != \"P\" else \"sell\"",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.09s",
+    "failure": null
+  },
+  {
+    "id": "E07",
+    "module": "services.edgar",
+    "old": "round(shares * price, 2)",
+    "new": "round(shares + price, 2)",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.02s",
+    "failure": null
+  },
+  {
+    "id": "E08",
+    "module": "services.edgar",
+    "old": "if is_off:\n        role",
+    "new": "if not is_off:\n        role",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 11.98s",
+    "failure": null
+  },
+  {
+    "id": "P01",
+    "module": "simulation.portfolio",
+    "old": "execution_price <= 0 or allocation <= 0",
+    "new": "execution_price <= 0 and allocation <= 0",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 11.98s",
+    "failure": null
+  },
+  {
+    "id": "P02",
+    "module": "simulation.portfolio",
+    "old": "min(allocation, self.cash)",
+    "new": "allocation",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.31s",
+    "failure": null
+  },
+  {
+    "id": "P03",
+    "module": "simulation.portfolio",
+    "old": "affordable * (1 - transaction_cost)",
+    "new": "affordable * (1 + transaction_cost)",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.31s",
+    "failure": null
+  },
+  {
+    "id": "P04",
+    "module": "simulation.portfolio",
+    "old": "self.cash -= affordable",
+    "new": "self.cash += affordable",
+    "killed": true,
+    "summary": "1 failed, 251 passed, 8 warnings in 12.40s",
+    "failure": "FAILED tests/test_simulation_engine.py::test_a_buy_fills_at_the_first_close_on_or_after_disclosure_plus_delay[disclosed0-0]"
+  },
+  {
+    "id": "P05",
+    "module": "simulation.portfolio",
+    "old": "total_cost / total_shares",
+    "new": "execution_price",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.45s",
+    "failure": null
+  },
+  {
+    "id": "P06",
+    "module": "simulation.portfolio",
+    "old": "min(target_value, max_sell_value)",
+    "new": "target_value",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.44s",
+    "failure": null
+  },
+  {
+    "id": "P07",
+    "module": "simulation.portfolio",
+    "old": "execution_price * (1 - transaction_cost)",
+    "new": "execution_price * (1 + transaction_cost)",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.36s",
+    "failure": null
+  },
+  {
+    "id": "P08",
+    "module": "simulation.portfolio",
+    "old": "remaining = pos.shares - shares_to_sell",
+    "new": "remaining = pos.shares + shares_to_sell",
+    "killed": true,
+    "summary": "1 failed, 254 passed, 8 warnings in 11.98s",
+    "failure": "FAILED tests/test_simulation_engine.py::test_a_sell_fills_at_the_first_close_on_or_after_disclosure"
+  },
+  {
+    "id": "P09",
+    "module": "simulation.portfolio",
+    "old": "current_prices.get(sym, pos.avg_cost)",
+    "new": "current_prices.get(sym, 0.0)",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 11.93s",
+    "failure": null
+  },
+  {
+    "id": "I01",
+    "module": "ingestion.pipeline",
+    "old": "if normalised is None:",
+    "new": "if normalised is not None:",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 11.97s",
+    "failure": null
+  },
+  {
+    "id": "I02",
+    "module": "ingestion.pipeline",
+    "old": "if not ok:\n                errors += 1\n                continue\n\n            exists",
+    "new": "if False:\n                errors += 1\n                continue\n\n            exists",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.17s",
+    "failure": null
+  },
+  {
+    "id": "I03",
+    "module": "ingestion.pipeline",
+    "old": "if exists:",
+    "new": "if False:",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.15s",
+    "failure": null
+  },
+  {
+    "id": "I04",
+    "module": "ingestion.pipeline",
+    "old": "skipped += 1",
+    "new": "skipped += 0",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.14s",
+    "failure": null
+  },
+  {
+    "id": "I05",
+    "module": "ingestion.pipeline",
+    "old": "if not ok:\n                errors += 1\n                continue\n\n            symbol",
+    "new": "if False:\n                errors += 1\n                continue\n\n            symbol",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.39s",
+    "failure": null
+  },
+  {
+    "id": "I06",
+    "module": "ingestion.pipeline",
+    "old": "existing.closing_price = Decimal(str(raw[\"closing_price\"]))",
+    "new": "existing.closing_price = existing.closing_price",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.36s",
+    "failure": null
+  },
+  {
+    "id": "I07",
+    "module": "ingestion.pipeline",
+    "old": "updated += 1",
+    "new": "updated += 0",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 12.35s",
+    "failure": null
+  },
+  {
+    "id": "R01",
+    "module": "analytics.ranking",
+    "old": "(v - lo) / spread",
+    "new": "(v + lo) / spread",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 13.11s",
+    "failure": null
+  },
+  {
+    "id": "R02",
+    "module": "analytics.ranking",
+    "old": "[0.5] * len(values)",
+    "new": "[0.0] * len(values)",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 13.11s",
+    "failure": null
+  },
+  {
+    "id": "R03",
+    "module": "analytics.ranking",
+    "old": "abs(_f(p.max_drawdown if p else None))",
+    "new": "_f(p.max_drawdown if p else None)",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 13.07s",
+    "failure": null
+  },
+  {
+    "id": "R04",
+    "module": "analytics.ranking",
+    "old": "- w.rank_w_drawdown",
+    "new": "+ w.rank_w_drawdown",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 13.82s",
+    "failure": null
+  },
+  {
+    "id": "R05",
+    "module": "analytics.ranking",
+    "old": "reverse=True",
+    "new": "reverse=False",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 13.93s",
+    "failure": null
+  },
+  {
+    "id": "R06",
+    "module": "analytics.ranking",
+    "old": "r.rank = i + 1",
+    "new": "r.rank = i",
+    "killed": false,
+    "summary": "274 passed, 8 warnings in 13.80s",
+    "failure": null
+  }
+]
